@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@dimforge/rapier3d-simd": "^0.19.3",
+    "@loaders.gl/gltf": "^4.3.4",
+    "@types/bun": "^1.3.2",
+    "@webgpu/types": "^0.1.66",
+    "esbuild": "^0.27.0",
+    "esbuild-plugin-copy": "^2.1.1",
+    "esbuild-plugin-wasm": "^1.1.0",
+    "mediabunny": "^1.25.0",
+    "r628": "^0.1.19"
+  }
+}
