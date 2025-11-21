@@ -73,6 +73,7 @@ export type ComponentSpec<
 > = {
   create: (
     params: Params,
+    global: { state: GlobalState },
     dependencies: SimpleComponentsMap<GlobalDependencies[number]>,
     waitFor: <D extends Dependencies[number]>(d: D) => ComponentInstanceData<D>
   ) => Component;
@@ -264,6 +265,7 @@ export async function createSystem<Comps extends Components>(
 
         const comp = componentMap[k]!.componentTemplate.create(
           v,
+          componentMap[k],
           componentMap,
           (spec) => {
             loadComponent(spec.brand, ec[spec.brand]);

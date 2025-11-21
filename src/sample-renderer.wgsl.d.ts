@@ -30,13 +30,13 @@ declare module "sample-renderer.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 415,
+            "id": 8711,
             "line": 17,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 416,
+            "id": 8712,
             "line": 17,
             "name": "binding",
             "value": "0"

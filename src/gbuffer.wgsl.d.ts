@@ -7,7 +7,7 @@ declare module "gbuffer.wgsl" {
         "type": {
           "name": "Params",
           "attributes": null,
-          "size": 64,
+          "size": 80,
           "members": [
             {
               "name": "mvp",
@@ -19,25 +19,36 @@ declare module "gbuffer.wgsl" {
               "attributes": null,
               "offset": 0,
               "size": 64
+            },
+            {
+              "name": "draw_color",
+              "type": {
+                "name": "vec4f",
+                "attributes": null,
+                "size": 16
+              },
+              "attributes": null,
+              "offset": 64,
+              "size": 16
             }
           ],
           "align": 16,
           "startLine": 20,
-          "endLine": 22,
+          "endLine": 23,
           "inUse": true
         },
         "group": 0,
         "binding": 0,
         "attributes": [
           {
-            "id": 317,
-            "line": 24,
+            "id": 244373,
+            "line": 25,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 318,
-            "line": 24,
+            "id": 244374,
+            "line": 25,
             "name": "binding",
             "value": "0"
           }

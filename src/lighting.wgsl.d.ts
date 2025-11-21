@@ -1,0 +1,296 @@
+declare module "lighting.wgsl" {
+  const data: {
+  "bindGroups": [
+    [
+      {
+        "name": "tex_sampler",
+        "type": {
+          "name": "sampler",
+          "attributes": [
+            {
+              "id": 244465,
+              "line": 14,
+              "name": "group",
+              "value": "0"
+            },
+            {
+              "id": 244466,
+              "line": 14,
+              "name": "binding",
+              "value": "0"
+            }
+          ],
+          "size": 0,
+          "format": null,
+          "access": null
+        },
+        "group": 0,
+        "binding": 0,
+        "attributes": [
+          {
+            "id": 244465,
+            "line": 14,
+            "name": "group",
+            "value": "0"
+          },
+          {
+            "id": 244466,
+            "line": 14,
+            "name": "binding",
+            "value": "0"
+          }
+        ],
+        "resourceType": 3,
+        "access": ""
+      },
+      {
+        "name": "tex_pos",
+        "type": {
+          "name": "texture_2d",
+          "attributes": [
+            {
+              "id": 244469,
+              "line": 15,
+              "name": "group",
+              "value": "0"
+            },
+            {
+              "id": 244470,
+              "line": 15,
+              "name": "binding",
+              "value": "1"
+            }
+          ],
+          "size": 0,
+          "format": {
+            "name": "f32",
+            "attributes": null,
+            "size": 4
+          },
+          "access": null
+        },
+        "group": 0,
+        "binding": 1,
+        "attributes": [
+          {
+            "id": 244469,
+            "line": 15,
+            "name": "group",
+            "value": "0"
+          },
+          {
+            "id": 244470,
+            "line": 15,
+            "name": "binding",
+            "value": "1"
+          }
+        ],
+        "resourceType": 2,
+        "access": "read"
+      },
+      {
+        "name": "tex_normal",
+        "type": {
+          "name": "texture_2d",
+          "attributes": [
+            {
+              "id": 244474,
+              "line": 16,
+              "name": "group",
+              "value": "0"
+            },
+            {
+              "id": 244475,
+              "line": 16,
+              "name": "binding",
+              "value": "2"
+            }
+          ],
+          "size": 0,
+          "format": {
+            "name": "f32",
+            "attributes": null,
+            "size": 4
+          },
+          "access": null
+        },
+        "group": 0,
+        "binding": 2,
+        "attributes": [
+          {
+            "id": 244474,
+            "line": 16,
+            "name": "group",
+            "value": "0"
+          },
+          {
+            "id": 244475,
+            "line": 16,
+            "name": "binding",
+            "value": "2"
+          }
+        ],
+        "resourceType": 2,
+        "access": "read"
+      },
+      {
+        "name": "tex_albedo",
+        "type": {
+          "name": "texture_2d",
+          "attributes": [
+            {
+              "id": 244479,
+              "line": 17,
+              "name": "group",
+              "value": "0"
+            },
+            {
+              "id": 244480,
+              "line": 17,
+              "name": "binding",
+              "value": "3"
+            }
+          ],
+          "size": 0,
+          "format": {
+            "name": "f32",
+            "attributes": null,
+            "size": 4
+          },
+          "access": null
+        },
+        "group": 0,
+        "binding": 3,
+        "attributes": [
+          {
+            "id": 244479,
+            "line": 17,
+            "name": "group",
+            "value": "0"
+          },
+          {
+            "id": 244480,
+            "line": 17,
+            "name": "binding",
+            "value": "3"
+          }
+        ],
+        "resourceType": 2,
+        "access": "read"
+      }
+    ],
+    [
+      {
+        "name": "params",
+        "type": {
+          "name": "Params",
+          "attributes": null,
+          "size": 112,
+          "members": [
+            {
+              "name": "mvp",
+              "type": {
+                "name": "mat4x4f",
+                "attributes": null,
+                "size": 64
+              },
+              "attributes": null,
+              "offset": 0,
+              "size": 64
+            },
+            {
+              "name": "light_pos",
+              "type": {
+                "name": "vec4f",
+                "attributes": null,
+                "size": 16
+              },
+              "attributes": null,
+              "offset": 64,
+              "size": 16
+            },
+            {
+              "name": "light_color",
+              "type": {
+                "name": "vec3f",
+                "attributes": null,
+                "size": 12
+              },
+              "attributes": null,
+              "offset": 80,
+              "size": 12
+            },
+            {
+              "name": "quadratic",
+              "type": {
+                "name": "f32",
+                "attributes": null,
+                "size": 4
+              },
+              "attributes": null,
+              "offset": 92,
+              "size": 4
+            },
+            {
+              "name": "linear",
+              "type": {
+                "name": "f32",
+                "attributes": null,
+                "size": 4
+              },
+              "attributes": null,
+              "offset": 96,
+              "size": 4
+            },
+            {
+              "name": "constant",
+              "type": {
+                "name": "f32",
+                "attributes": null,
+                "size": 4
+              },
+              "attributes": null,
+              "offset": 100,
+              "size": 4
+            },
+            {
+              "name": "cutoff_radius",
+              "type": {
+                "name": "f32",
+                "attributes": null,
+                "size": 4
+              },
+              "attributes": null,
+              "offset": 104,
+              "size": 4
+            }
+          ],
+          "align": 16,
+          "startLine": 19,
+          "endLine": 27,
+          "inUse": true
+        },
+        "group": 1,
+        "binding": 0,
+        "attributes": [
+          {
+            "id": 244499,
+            "line": 29,
+            "name": "group",
+            "value": "1"
+          },
+          {
+            "id": 244500,
+            "line": 29,
+            "name": "binding",
+            "value": "0"
+          }
+        ],
+        "resourceType": 0,
+        "access": "read"
+      }
+    ]
+  ]
+};
+ export default data; 
+}

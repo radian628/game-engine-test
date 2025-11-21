@@ -9,7 +9,7 @@ export async function scheduleAndCompleteAsynchronousTaskGraph<Tag, T>(
 
   for (const t of tasks) {
     for (const tag of t.tags) {
-      tasksByTag.set(tag, tasksByTag.get(tag).add(t) ?? new Set());
+      tasksByTag.set(tag, (tasksByTag.get(tag) ?? new Set()).add(t));
     }
   }
 
@@ -19,7 +19,7 @@ export async function scheduleAndCompleteAsynchronousTaskGraph<Tag, T>(
       let waitUntilTheseDone: Promise<any>[] = [];
       for (const tagToWaitFor of t.waitFor) {
         for (const taskToWaitFor of tasksByTag.get(tagToWaitFor) ?? new Set()) {
-          waitUntilTheseDone.push(runTaskIfNotStarted(t));
+          waitUntilTheseDone.push(runTaskIfNotStarted(taskToWaitFor));
         }
       }
       await Promise.all(waitUntilTheseDone);

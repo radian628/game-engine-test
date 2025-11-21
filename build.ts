@@ -41,6 +41,7 @@ function prefixer(prefix: string) {
     minify: true,
     bundle: true,
     splitting: true,
+    sourcemap: true,
     format: "esm",
     plugins: [
       demosPlugin({

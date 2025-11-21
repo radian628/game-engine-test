@@ -24,6 +24,7 @@ export const PhysicsWorld = specifyComponent({
     };
   },
   fixedUpdate({ state, instances }) {
+    state.world.integrationParameters.dt = 0.004;
     state.world.step();
   },
   onDestroy(c) {
@@ -52,7 +53,7 @@ export const RigidBody = specifyComponent({
   brand: "rigidBody" as const,
   dependencies: [Transform] as const,
   globalDependencies: [PhysicsWorld] as const,
-  create(params: RAPIER.RigidBodyDesc, { physicsWorld }) {
+  create(params: RAPIER.RigidBodyDesc, _, { physicsWorld }) {
     return { body: physicsWorld.state.world.createRigidBody(params) };
   },
   onDestroy(c, { physicsWorld }) {
@@ -77,7 +78,7 @@ export const RigidBodyCollider = specifyComponent({
   brand: "rigidBodyCollider" as const,
   dependencies: [RigidBody] as const,
   globalDependencies: [PhysicsWorld] as const,
-  create(params: RAPIER.ColliderDesc, { physicsWorld }, waitFor) {
+  create(params: RAPIER.ColliderDesc, _, { physicsWorld }, waitFor) {
     const rigidBody = waitFor(RigidBody);
     const collider = physicsWorld.state.world.createCollider(
       params,
