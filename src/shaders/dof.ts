@@ -95,6 +95,7 @@ export function runDofShaderPipeline(params: {
           resource: device.createSampler({
             minFilter: "linear",
             magFilter: "linear",
+            mipmapFilter: "linear",
           }),
         },
       ],

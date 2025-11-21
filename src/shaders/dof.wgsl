@@ -34,7 +34,7 @@ fn VSMain(@builtin(vertex_index) vertexIndex: u32) -> DOFFragInput {
 
 
 fn get_individual_defocus_amount(dist: f32) -> f32 {
-  return max(abs(dist - 20.0) / dist * 45.0 - 00.0, 0.01); 
+  return max(abs(dist - 20.2) / dist * 45.0 - 00.0, 0.01); 
 }
 
 fn get_defocus_amount(dists: vec2f) -> f32 {
@@ -46,6 +46,28 @@ fn get_defocus_amount(dists: vec2f) -> f32 {
 
 fn logistic(x: f32) -> f32 {
   return 1.0 / (1.0 + exp(-x)); 
+}
+
+fn blur(uv: vec2f, size: f32) -> vec4f {
+  let dims = vec2f(textureDimensions(tex_color, 0));
+  var accum = vec4f(0.0);
+  let mip_level = log2(f32(size)) * 1.0;
+  var factor = 0.0;
+  for (var i = 0; i < i32(floor(size)) + 1; i += 1) {
+    let offset = OFFSET_LUT[i];
+    let uv2 = uv + offset.xy / dims * 1.0;
+    let pos = textureSampleLevel(tex_position, tex_sampler, uv2, 0.0);
+    let f = 
+    select(
+      0.0,
+      clamp(size - offset.z, 0.0, 1.0),
+      pos.y < 23 && pos.y > 17 
+    );
+    accum += textureSampleLevel(tex_color, tex_linear_sampler, uv2, 0.0) 
+      * f;
+    factor += f;
+  }
+  return accum / factor;
 }
 
 @fragment
@@ -61,54 +83,16 @@ fn FSMain(@location(0) uv:  vec2f) -> @location(0) vec4f {
 
   let depth = abs(pos.y);
 
+  let defocus = get_defocus_amount(pos.xy);
+
   var sample_count = 0.0;
 
   var accum = vec4f(0.0);
 
-  for (var i = 0; i < 30; i += 1) {
-    let offset = OFFSET_LUT[i];
-      
-    let uv2 = uv + offset.xy / dims * 1.0;
-
-    let pos_mip_level = min(log2(offset.z) * 1.0, 3.0);
-
-    let pos2 = textureSampleLevel(tex_position, tex_linear_sampler, uv2, pos_mip_level);
-
-    let defocus = min(get_defocus_amount(pos2.xy), 30.0);
-
-    // let defocus = min(get_defocus_amount(pos.xy), 30.0);
-
-    let mip_level = log2(defocus) * 1.0;
-
-    let dist_to_center = offset.z;
-  
-    let weight = 
-       select( 0.0, 1.0 / (defocus + 0.0), 
-       dist_to_center < defocus 
-       && pos2.y < 50.0
-       // && pos2.y < pos.y + 2.0
-    );
-
-
-
-
-    sample_count += weight;
-    accum += textureSampleLevel(tex_color, tex_linear_sampler, uv2, mip_level) * weight;
-  }
-
-
-
-  
-  /*
   return vec4f(
-    center_color.rgb + 
-    select(
-      vec3f(0.0, 0.0, 0.0),
-      vec3f(0.0, 0.0, 1.0), 
-      pos.y < 99),
-  1.0); */
-
-  return vec4f(accum.rgb / 1.0, 1.0);
+    blur(uv, clamp(defocus, 1.0, 29.0)).rgb,
+    1.0
+  );
 }
 
 /*
