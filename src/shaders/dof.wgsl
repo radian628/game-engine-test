@@ -34,7 +34,7 @@ fn VSMain(@builtin(vertex_index) vertexIndex: u32) -> DOFFragInput {
 
 
 fn get_individual_defocus_amount(dist: f32) -> f32 {
-  return max(abs(dist - 20.2) / dist * 45.0 - 00.0, 0.01); 
+  return max(abs(dist - 10.0) / dist * 35.0 - 00.0, 0.01); 
 }
 
 fn get_defocus_amount(dists: vec2f) -> f32 {
@@ -81,16 +81,30 @@ fn FSMain(@location(0) uv:  vec2f) -> @location(0) vec4f {
   let pos = textureSampleLevel(tex_position, tex_linear_sampler, uv, 0.0);
   let center_color = textureSampleLevel(tex_color, tex_linear_sampler, uv, 0.0);
 
-  let depth = abs(pos.y);
-
-  let defocus = get_defocus_amount(pos.xy);
-
-  var sample_count = 0.0;
+  var factor = 0.0;
 
   var accum = vec4f(0.0);
 
+  for (var i = 0; i < 30; i += 1) {
+    let offset = OFFSET_LUT[i];
+    let uv2 = uv + offset.xy / dims * 1.0;
+    let pos_mip_level = min(log2(offset.z), 2.0);
+    let pos2 = textureSampleLevel(tex_position, tex_linear_sampler, uv2, pos_mip_level);
+
+    let defocus = min(get_defocus_amount(pos2.xy), 30.0);
+
+    let mip_level = min(log2(defocus), 2.0);
+    let f = (offset.z + 1.0)
+      * logistic(defocus - offset.z)
+      * select(0.0, 1.0, pos.y >= pos2.y);
+      // * logistic(pos.y - pos2.y);
+    accum += textureSampleLevel(tex_color, tex_linear_sampler, uv2, mip_level) 
+      * f;
+    factor += f;
+  }
+
   return vec4f(
-    blur(uv, clamp(defocus, 1.0, 29.0)).rgb,
+    accum.rgb / factor,
     1.0
   );
 }

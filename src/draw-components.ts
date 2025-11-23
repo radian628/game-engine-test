@@ -1,4 +1,5 @@
 import {
+  cartesianProduct,
   download,
   makeUniformBuffer,
   mulMat4,
@@ -18,6 +19,8 @@ import {
   runDofPositionToDepth,
   runDofShaderPipeline,
 } from "./shaders/dof";
+import { createKernelShaderPipeline } from "./shaders/kernel";
+import { createSimpleFilterPipeline } from "./shaders/simple-filter";
 
 export const MainCanvas = specifyComponent({
   create() {
@@ -26,8 +29,8 @@ export const MainCanvas = specifyComponent({
   onDestroy() {},
   async init() {
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 1024;
+    canvas.width = 2560;
+    canvas.height = 1440;
     document.body.appendChild(canvas);
     return {
       canvas,
@@ -94,32 +97,36 @@ function createLightingTextures(device: GPUDevice, dimensions: Vec2) {
       GPUTextureUsage.TEXTURE_BINDING |
       GPUTextureUsage.STORAGE_BINDING,
   });
+
+  const screenSizedColorTexture = (scaleFactor: number = 1) =>
+    device.createTexture({
+      size: dimensions.map((d) => Math.ceil(d * scaleFactor)),
+      format: "rgba8unorm",
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.STORAGE_BINDING,
+    });
+
+  const color2 = screenSizedColorTexture();
+
   return {
     color,
-    dofMinMaxDepthTextures: [1, 2, 4].map((s) =>
-      device.createTexture({
-        size: [Math.ceil(dimensions[0] / s), Math.ceil(dimensions[1] / s)],
-        format: "rg32float",
-        usage:
-          GPUTextureUsage.STORAGE_BINDING |
-          GPUTextureUsage.COPY_SRC |
-          GPUTextureUsage.TEXTURE_BINDING,
-        mipLevelCount: 7,
-      })
-    ),
-    dofColorTextures: [
-      color,
-      ...[2, 4].map((s) =>
-        device.createTexture({
-          size: [Math.ceil(dimensions[0] / s), Math.ceil(dimensions[1] / s)],
-          format: "rgba8unorm",
-          usage:
-            GPUTextureUsage.STORAGE_BINDING |
-            GPUTextureUsage.COPY_SRC |
-            GPUTextureUsage.TEXTURE_BINDING,
-        })
-      ),
-    ],
+    color2,
+    nearField: screenSizedColorTexture(2),
+    nearField2: screenSizedColorTexture(2),
+    farField: screenSizedColorTexture(2),
+    farField2: screenSizedColorTexture(2),
+    depth: device.createTexture({
+      size: dimensions,
+      format: "rg32float",
+      usage:
+        GPUTextureUsage.STORAGE_BINDING |
+        GPUTextureUsage.COPY_SRC |
+        GPUTextureUsage.TEXTURE_BINDING,
+      mipLevelCount: 7,
+    }),
   };
 }
 
@@ -131,9 +138,13 @@ type DeferredPipelineTextures = {
     depth: GPUTexture;
   };
   lighting: {
+    depth: GPUTexture;
     color: GPUTexture;
-    dofMinMaxDepthTextures: GPUTexture[];
-    dofColorTextures: GPUTexture[];
+    color2: GPUTexture;
+    nearField: GPUTexture;
+    nearField2: GPUTexture;
+    farField: GPUTexture;
+    farField2: GPUTexture;
   };
 
   // lightingBindGroup: GPUBindGroup;
@@ -192,6 +203,10 @@ function fullscreenQuad2DBuffer(device: GPUDevice) {
   );
 }
 
+function intervalInclusive(a: number, b: number): number[] {
+  return range(b - a + 1).map((i) => i - a);
+}
+
 export const SampleWebgpuRenderer = specifyComponent({
   create() {
     return undefined;
@@ -220,6 +235,212 @@ export const SampleWebgpuRenderer = specifyComponent({
     const onResizeCallbacks = new Set<() => void>();
 
     return {
+      blit: createSimpleFilterPipeline(device, {
+        inputs: { x: {} },
+        outputs: { y: format as "bgra8unorm" },
+        source: "y = x;",
+      }),
+
+      nearFieldDepthMask: createSimpleFilterPipeline(device, {
+        inputs: {
+          color: {},
+          depth: {},
+        },
+        uniforms: {
+          m: "f32",
+          b: "f32",
+        },
+        outputs: { near_field: "rgba8unorm" },
+        source: `near_field = 
+          vec4f(color.rgb, params.m * depth.x + params.b);
+        `,
+      }),
+
+      farFieldDepthMask: createSimpleFilterPipeline(device, {
+        inputs: {
+          color: {},
+          depth: {},
+        },
+        uniforms: {
+          m: "f32",
+          b: "f32",
+        },
+        outputs: { far_field: "rgba8unorm" },
+        source: `far_field = mix(
+          vec4f(0.0, 0.0, 0.0, 1.0),
+          color,
+          clamp(
+            params.m * depth.x + params.b, 
+            0.0, 1.0)
+        );`,
+      }),
+
+      maxFilter: createSimpleFilterPipeline(device, {
+        inputs: { color: {} },
+        uniforms: {
+          dims: "vec2f",
+        },
+        outputs: { blurred: "rgba8unorm" },
+        source: `
+        blurred = vec4f(0.0, 0.0, 0.0, 0.0);
+        var size = vec2f(textureDimensions(tex_color).xy);
+        for (var y = -params.dims.y; y < params.dims.y + 1.0; y += 1.0) {
+          for (var x = -params.dims.x; x < params.dims.x + 1.0; x += 1.0) {
+            blurred = max(
+              blurred,
+              textureSample(tex_color, sampler0, uv + vec2f(x, y) / size)
+            );
+          } 
+        } 
+        `,
+      }),
+
+      boxBlur: createSimpleFilterPipeline(device, {
+        inputs: { color: {} },
+        uniforms: {
+          dims: "vec2f",
+        },
+        outputs: { blurred: "rgba8unorm" },
+        source: `
+        blurred = vec4f(0.0, 0.0, 0.0, 0.0);
+        var size = vec2f(textureDimensions(tex_color).xy);
+        let sample_count =
+          vec4f(
+            (params.dims.x * 2.0 + 1.0) * (params.dims.y * 2.0 + 1.0)
+          );
+        for (var y = -params.dims.y; y < params.dims.y + 1.0; y += 1.0) {
+          for (var x = -params.dims.x; x < params.dims.x + 1.0; x += 1.0) {
+            blurred = 
+              blurred + textureSample(tex_color, sampler0, uv + vec2f(x, y) / size);
+          } 
+        } 
+        blurred = blurred / sample_count; 
+        `,
+      }),
+
+      dofBlend: createSimpleFilterPipeline(device, {
+        inputs: {
+          color: {},
+          near_field: {},
+          far_field: {},
+          depth: {},
+        },
+        uniforms: {
+          near_threshold: "f32",
+          focus: "f32",
+          far_threshold: "f32",
+        },
+        outputs: { combined: "rgba8unorm" },
+        source: `
+          let factor = clamp(select(
+            (depth.x - params.near_threshold) / (params.focus - params.near_threshold),
+            (depth.x - params.focus) / (params.far_threshold - params.focus),
+            depth.x > params.focus
+          ), 0.0, 1.0);
+
+          var opaque_near_field = near_field;
+          opaque_near_field.a = 1.0;
+
+          combined = 
+          mix(
+          select(
+            color,
+            mix(color, far_field, factor),
+            depth.x > params.focus
+          ), opaque_near_field, near_field.a);
+          
+        `,
+      }),
+
+      generateDofDepthMask: createSimpleFilterPipeline(device, {
+        inputs: {
+          position: {},
+        },
+        uniforms: {
+          near_threshold: "f32",
+          focus: "f32",
+          far_threshold: "f32",
+        },
+        outputs: {
+          combined: "rg8unorm",
+        },
+        source: `
+          let depth = position.z;
+          combined = vec2f(
+            1.0 - (depth - params.near_threshold) / (params.focus - params.near_threshold),
+            -(params.focus - depth) / (params.far_threshold - params.focus)
+          );
+        `,
+      }),
+
+      depthMaskMaxFilter: createSimpleFilterPipeline(device, {
+        inputs: {
+          depth: {},
+        },
+        uniforms: {
+          dims: "vec2f",
+        },
+        outputs: {
+          blurred: "rg8unorm",
+        },
+        source: `
+        blurred = vec2f(0.0, 0.0);
+        var size = vec2f(textureDimensions(tex_color).xy);
+        for (var y = -params.dims.y; y < params.dims.y + 1.0; y += 1.0) {
+          for (var x = -params.dims.x; x < params.dims.x + 1.0; x += 1.0) {
+            blurred = max(
+              blurred,
+              textureSample(tex_color, sampler0, uv + vec2f(x, y) / size)
+            );
+          } 
+        } 
+        `,
+      }),
+
+      maxKernel: createKernelShaderPipeline(
+        device,
+        {
+          accumulate: "max(acc, curr)",
+          convert: "acc",
+          kernel: cartesianProduct(
+            intervalInclusive(-2, 2),
+            intervalInclusive(-2, 2)
+          ).map(([x, y]) => `vec2f(${x}, ${y})`),
+          initial: "vec4f(0.0)",
+        },
+        format
+      ),
+
+      verticalBoxBlur: createKernelShaderPipeline(
+        device,
+        {
+          accumulate: "acc + curr",
+          convert: "acc / 41.0",
+          // accumulate: "max(acc, curr)",
+          // convert: "acc",
+          kernel: cartesianProduct(
+            intervalInclusive(0, 0),
+            intervalInclusive(-20, 20)
+          ).map(([x, y]) => `vec2f(${y}, ${y})`),
+          initial: "vec4f(0.0)",
+        },
+        "rgba8unorm"
+      ),
+      horizontalBoxBlur: createKernelShaderPipeline(
+        device,
+        {
+          accumulate: "acc + curr",
+          convert: "acc / 41.0",
+          // accumulate: "max(acc, curr)",
+          // convert: "acc",
+          kernel: cartesianProduct(
+            intervalInclusive(-20, 20),
+            intervalInclusive(0, 0)
+          ).map(([x, y]) => `vec2f(${x}, ${-x})`),
+          initial: "vec4f(0.0)",
+        },
+        "rgba8unorm"
+      ),
       dofPositionToDepth: createDofPositionToDepth(device),
       dofDownsample: createDofDownsampleShaderPipeline(device),
       dofPipeline: createDofShaderPipeline(device, format),
@@ -245,37 +466,13 @@ export const SampleWebgpuRenderer = specifyComponent({
   },
   renderUpdate({ state, scheduleTask }) {
     const { device, textures, fullscreenQuad } = state;
-    // scheduleTask(
-    //   () => {
-    //     const commandEncoder = device.createCommandEncoder();
-    //     const passEncoder = commandEncoder.beginRenderPass({
-    //       colorAttachments: [
-    //         {
-    //           view: state.ctx.getCurrentTexture().createView(),
-    //           clearValue: [0, 0, 0, 1],
-    //           loadOp: "clear",
-    //           storeOp: "store",
-    //         },
-    //       ],
-    //     });
-    //     passEncoder.setPipeline(lightingPipeline);
-    //     passEncoder.setVertexBuffer(0, fullscreenQuad);
-    //     passEncoder.setBindGroup(0, textures.lightingBindGroup);
-    //     passEncoder.draw(6);
-    //     passEncoder.end();
-    //     device.queue.submit([commandEncoder.finish()]);
-    //     return Promise.resolve();
-    //   },
-    //   [LIGHTING_PASS],
-    //   [GBUFFER_PASS]
-    // );
 
     scheduleTask(
       () => {
         runDofPositionToDepth({
           device,
           positionTex: textures.gbuffer.position.createView(),
-          depthTex: textures.lighting.dofMinMaxDepthTextures[0].createView({
+          depthTex: textures.lighting.depth.createView({
             mipLevelCount: 1,
             baseMipLevel: 0,
           }),
@@ -283,59 +480,136 @@ export const SampleWebgpuRenderer = specifyComponent({
           inputDimensions: [state.canvas.width, state.canvas.height],
         });
 
-        for (const i of range(6)) {
-          const currMipLevel = i;
-          const nextMipLevel = i + 1;
+        const commandEncoder = device.createCommandEncoder();
 
-          runDofDownsample({
-            device,
-            colorTexIn: textures.lighting.dofColorTextures[0].createView({
-              mipLevelCount: 1,
-              baseMipLevel: currMipLevel,
-            }),
-            colorTexOut: textures.lighting.dofColorTextures[0].createView({
-              mipLevelCount: 1,
-              baseMipLevel: nextMipLevel,
-            }),
-            depthTexIn: textures.lighting.dofMinMaxDepthTextures[0].createView({
-              mipLevelCount: 1,
-              baseMipLevel: currMipLevel,
-            }),
-            depthTexOut: textures.lighting.dofMinMaxDepthTextures[0].createView(
-              {
-                mipLevelCount: 1,
-                baseMipLevel: nextMipLevel,
-              }
-            ),
-            pipeline: state.dofDownsample.pipeline,
-            inputDimensions: [
-              state.canvas.width / 2 ** currMipLevel,
-              state.canvas.height / 2 ** currMipLevel,
-            ],
+        function fastBoxBlur(input: GPUTexture, temp: GPUTexture, dims: Vec2) {
+          state.boxBlur.withInputs({
+            color: input.createView(),
+          })(
+            state.boxBlur.makeUniformBuffer().setBuffer({
+              dims: [dims[0], 0],
+            })
+          )(commandEncoder, {
+            blurred: temp.createView(),
+          });
+
+          state.boxBlur.withInputs({
+            color: temp.createView(),
+          })(
+            state.boxBlur.makeUniformBuffer().setBuffer({
+              dims: [0, dims[1]],
+            })
+          )(commandEncoder, {
+            blurred: input.createView(),
           });
         }
 
-        const commandEncoder = device.createCommandEncoder();
-        const passEncoder = commandEncoder.beginRenderPass({
-          colorAttachments: [
-            {
-              view: state.ctx.getCurrentTexture().createView(),
-              clearValue: [0, 0, 0, 1],
-              loadOp: "clear",
-              storeOp: "store",
-            },
-          ],
+        function fastMaxFilter(
+          input: GPUTexture,
+          temp: GPUTexture,
+          dims: Vec2
+        ) {
+          state.maxFilter.withInputs({
+            color: input.createView(),
+          })(
+            state.maxFilter.makeUniformBuffer().setBuffer({
+              dims: [dims[0], 0],
+            })
+          )(commandEncoder, {
+            blurred: temp.createView(),
+          });
+
+          state.maxFilter.withInputs({
+            color: temp.createView(),
+          })(
+            state.maxFilter.makeUniformBuffer().setBuffer({
+              dims: [0, dims[1]],
+            })
+          )(commandEncoder, {
+            blurred: input.createView(),
+          });
+        }
+
+        const nearThreshold = 8;
+        const focus = 10;
+        const farThreshold = 12;
+
+        const farM = 1 / (farThreshold - focus);
+        const farB = -focus * farM;
+
+        const nearM = -1 / (focus - nearThreshold);
+        const nearB = -nearThreshold * nearM + 1;
+
+        console.log(nearM, nearB);
+
+        state.farFieldDepthMask.withInputs({
+          color: textures.lighting.color.createView(),
+          depth: textures.lighting.depth.createView(),
+        })(
+          state.farFieldDepthMask.makeUniformBuffer().setBuffer({
+            m: farM,
+            b: farB,
+          })
+        )(commandEncoder, {
+          far_field: textures.lighting.farField.createView(),
         });
 
-        runDofShaderPipeline({
-          device,
-          dofPipeline: state.dofPipeline.dofPipeline,
-          passEncoder,
-          lightingTexture: state.textures.lighting.dofColorTextures[0],
-          positionTexture: state.textures.lighting.dofMinMaxDepthTextures[0],
+        fastMaxFilter(
+          textures.lighting.farField,
+          textures.lighting.farField2,
+          [20, 20]
+        );
+
+        fastBoxBlur(
+          textures.lighting.farField,
+          textures.lighting.farField2,
+          [5, 5]
+        );
+
+        state.nearFieldDepthMask.withInputs({
+          color: textures.lighting.color.createView(),
+          depth: textures.lighting.depth.createView(),
+        })(
+          state.nearFieldDepthMask.makeUniformBuffer().setBuffer({
+            m: nearM,
+            b: nearB,
+          })
+        )(commandEncoder, {
+          near_field: textures.lighting.nearField.createView(),
         });
 
-        passEncoder.end();
+        fastMaxFilter(
+          textures.lighting.nearField,
+          textures.lighting.nearField2,
+          [2, 2]
+        );
+
+        fastBoxBlur(
+          textures.lighting.nearField,
+          textures.lighting.nearField2,
+          [5, 5]
+        );
+
+        state.dofBlend.withInputs({
+          color: textures.lighting.color.createView(),
+          depth: textures.lighting.depth.createView(),
+          near_field: textures.lighting.nearField.createView(),
+          far_field: textures.lighting.farField.createView(),
+        })(
+          state.dofBlend.makeUniformBuffer().setBuffer({
+            near_threshold: nearThreshold,
+            focus: focus,
+            far_threshold: farThreshold,
+          })
+        )(commandEncoder, {
+          combined: textures.lighting.color2.createView(),
+        });
+
+        state.blit.withInputs({
+          x: textures.lighting.color2.createView(),
+        })(undefined)(commandEncoder, {
+          y: state.ctx.getCurrentTexture().createView(),
+        });
 
         device.queue.submit([commandEncoder.finish()]);
 
