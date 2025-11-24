@@ -10,6 +10,6 @@ export function equallyDistributedGoldenSpiral(radius: number): Vec4[] {
   });
 }
 
-export const blurKernelArray = equallyDistributedGoldenSpiral(10)
+export const blurKernelArray = equallyDistributedGoldenSpiral(6)
   .map((e) => `vec4f(${e.join(",")})`)
   .join(", ");

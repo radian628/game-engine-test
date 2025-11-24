@@ -21,6 +21,12 @@ import {
 } from "./shaders/dof";
 import { createKernelShaderPipeline } from "./shaders/kernel";
 import { createSimpleFilterPipeline } from "./shaders/simple-filter";
+import {
+  blurFar,
+  blurNear,
+  maskOutFar,
+  maxFilterNear,
+} from "./shaders/dof-post-effects";
 
 export const MainCanvas = specifyComponent({
   create() {
@@ -250,6 +256,11 @@ export const SampleWebgpuRenderer = specifyComponent({
         `,
       }),
 
+      blurNear: blurNear(device),
+      blurFar: blurFar(device),
+      maxFilterNear: maxFilterNear(device),
+      maskOutFar: maskOutFar(device),
+
       farFieldMaxFilter: createSimpleFilterPipeline(device, {
         inputs: { color: {} },
         uniforms: {
@@ -295,40 +306,6 @@ export const SampleWebgpuRenderer = specifyComponent({
         `,
       }),
 
-      dofBlend: createSimpleFilterPipeline(device, {
-        inputs: {
-          color: {},
-          near_field: {},
-          far_field: {},
-          depth: {},
-        },
-        uniforms: {
-          near_threshold: "f32",
-          focus: "f32",
-          far_threshold: "f32",
-        },
-        outputs: { combined: "rgba8unorm" },
-        source: `
-          let factor = clamp(select(
-            (depth.x - params.near_threshold) / (params.focus - params.near_threshold),
-            (depth.x - params.focus) / (params.far_threshold - params.focus),
-            depth.x > params.focus
-          ), 0.0, 1.0);
-
-          var opaque_near_field = near_field;
-          opaque_near_field.a = 1.0;
-
-          combined = 
-          mix(
-          select(
-            color,
-            mix(color, far_field, factor),
-            depth.x > params.focus
-          ), opaque_near_field, near_field.a);
-          
-        `,
-      }),
-
       generateDofDepthMask: createSimpleFilterPipeline(device, {
         inputs: {
           position: {},
@@ -350,30 +327,6 @@ export const SampleWebgpuRenderer = specifyComponent({
         `,
       }),
 
-      depthMaskMaxFilter: createSimpleFilterPipeline(device, {
-        inputs: {
-          depth: {},
-        },
-        uniforms: {
-          dims: "vec2f",
-        },
-        outputs: {
-          blurred: "rg8unorm",
-        },
-        source: `
-        blurred = vec2f(0.0, depth.y);
-        var size = vec2f(textureDimensions(tex_depth).xy);
-        for (var y = -params.dims.y; y < params.dims.y + 1.0; y += 1.0) {
-          for (var x = -params.dims.x; x < params.dims.x + 1.0; x += 1.0) {
-            blurred.x = max(
-              blurred.x,
-              textureSample(tex_depth, sampler0, uv + vec2f(x, y) / size).x
-            );
-          }
-        }
-        `,
-      }),
-
       mixBlend: createSimpleFilterPipeline(device, {
         inputs: {
           bottom: {},
@@ -384,89 +337,6 @@ export const SampleWebgpuRenderer = specifyComponent({
         },
         source: `
           combined = mix(bottom, top, top.a); 
-        `,
-      }),
-
-      applyDofDepthMask: createSimpleFilterPipeline(device, {
-        inputs: {
-          color: {},
-          depth: {},
-        },
-        uniforms: {
-          dims: "vec2f",
-          step: "vec2f",
-        },
-        outputs: {
-          // combined: "rgba8unorm",
-          near_field_out: "rgba8unorm",
-          far_field_out: "rgba8unorm",
-        },
-        globals: `const OFFSETS = array(${range(90)
-          .map((i) => {
-            const angle = i * 2.4;
-            const r = Math.sqrt(i);
-            const rNext = Math.sqrt(i + 1);
-            return `vec4f(${Math.cos(angle) * r}, ${Math.sin(angle) * r}, ${r}, ${rNext})`;
-          })
-          .join(", \n")});`,
-        source: `
-        let sample_count = (params.dims.x * 2.0 + 1.0) * (params.dims.y * 2.0 + 1.0);
-
-        var far_field = vec4(0.0); 
-        var near_field = vec4(0.0); 
-
-        var far_factor = 0.0;
-        var near_factor = 0.0;
-
-        var size = vec2f(textureDimensions(tex_depth).xy);
-
-        for (var i = 0; i < 90; i++) {
-            let offset = OFFSETS[i];
-            let uv2 = uv + offset.xy / size * params.step;
-
-            let d = textureSample(tex_depth, sampler0, uv2);
-            let pixel = textureSample(tex_color, sampler0, uv2);
-
-            let maxdist = sqrt(89.0);
-
-            let distance_factor = offset.z / maxdist;
-            let distance_factor_next = offset.w / maxdist;
-
-            var opacity_near = mix(
-              0.0, 
-              min(1.0 / (pow((d.x * maxdist), 2.0)), 1.0), 
-              clamp(
-                (d.x - distance_factor) / (distance_factor_next - distance_factor),
-                0.0, 1.0 
-              ) 
-            );
-
-            let opacity_far = select(0.0, 
-              clamp(depth.y - d.y + 0.6, 0.0, 1.0) 
-            , distance_factor < d.y 
-            );
-
-            near_factor += opacity_near;
-            far_factor += opacity_far;
-
-            let near_pixel = pixel * opacity_near;
-            let far_pixel = pow(pixel * opacity_far, vec4f(1.0));
-
-            near_field += near_pixel;
-            far_field += far_pixel;
-      }
-
-        far_field /= far_factor + 0.001;
-
-        
-
-        near_field_out = near_field;
-
-        if (depth.x > 0.0 && depth.x < 0.1) {
-          near_field_out = mix(color, near_field, depth.x * 1.0);
-        }
-
-        far_field_out = far_field ;
         `,
       }),
 
@@ -621,9 +491,9 @@ export const SampleWebgpuRenderer = specifyComponent({
           });
         }
 
-        const nearThreshold = 10;
-        const focus = 20;
-        const farThreshold = 40;
+        const nearThreshold = 5;
+        const focus = 10;
+        const farThreshold = 20;
 
         const farM = 1 / (farThreshold - focus);
         const farB = -focus * farM;
@@ -643,49 +513,43 @@ export const SampleWebgpuRenderer = specifyComponent({
           combined: textures.lighting.depth.createView(),
         });
 
-        // state.depthMaskMaxFilter.withInputs({
-        //   depth: textures.lighting.depth.createView(),
-        // })(
-        //   state.depthMaskMaxFilter.makeUniformBuffer().setBuffer({
-        //     dims: [1, 1],
-        //   })
-        // )(commandEncoder, {
-        //   blurred: textures.lighting.depth2.createView(),
-        // });
-
-        state.applyDofDepthMask.withInputs({
-          depth: textures.lighting.depth.createView(),
+        state.maskOutFar.withInputs({
           color: textures.lighting.color.createView(),
-        })(
-          state.applyDofDepthMask.makeUniformBuffer().setBuffer({
-            dims: [12, 12],
-            step: [1, 1],
-          })
-        )(commandEncoder, {
-          // combined: textures.lighting.color2.createView(),
-          near_field_out: textures.lighting.nearField.createView(),
-          far_field_out: textures.lighting.farField.createView(),
+          depth: textures.lighting.depth.createView(),
+        })(undefined)(commandEncoder, {
+          far_field: textures.lighting.farField.createView(),
         });
 
-        fastFarFieldMaxFilter(
-          textures.lighting.farField,
-          textures.lighting.farField2,
-          [3, 3],
-          [3, 3]
+        state.blurFar.withInputs({
+          color: textures.lighting.farField.createView(),
+          depth: textures.lighting.depth.createView(),
+        })(state.blurFar.makeUniformBuffer().setBuffer({ step: [1, 1] }))(
+          commandEncoder,
+          {
+            blurred: textures.lighting.farField2.createView(),
+          }
         );
 
-        // state.blit.withInputs({
-        //   x: textures.lighting.depth2.createView(),
-        // })(undefined)(commandEncoder, {
-        //   y: textures.lighting.color.createView(),
-        // });
+        state.maxFilterNear.withInputs({
+          color: textures.lighting.color.createView(),
+          depth: textures.lighting.depth.createView(),
+        })(state.maxFilterNear.makeUniformBuffer().setBuffer({ step: [1, 1] }))(
+          commandEncoder,
+          {
+            blurred: textures.lighting.nearField2.createView(),
+          }
+        );
 
-        state.mixBlend.withInputs({
-          bottom: textures.lighting.farField.createView(),
-          top: textures.lighting.nearField.createView(),
-        })(undefined)(commandEncoder, {
-          combined: textures.lighting.color2.createView(),
-        });
+        state.blurNear.withInputs({
+          far: textures.lighting.farField2.createView(),
+          near: textures.lighting.nearField2.createView(),
+          depth: textures.lighting.depth.createView(),
+        })(state.blurNear.makeUniformBuffer().setBuffer({ step: [1, 1] }))(
+          commandEncoder,
+          {
+            blurred: textures.lighting.color2.createView(),
+          }
+        );
 
         state.blitToCanvas.withInputs({
           x: textures.lighting.color2.createView(),
