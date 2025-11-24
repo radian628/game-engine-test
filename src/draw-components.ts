@@ -230,40 +230,6 @@ export const SampleWebgpuRenderer = specifyComponent({
         source: "y = x;",
       }),
 
-      nearFieldDepthMask: createSimpleFilterPipeline(device, {
-        inputs: {
-          color: {},
-          depth: {},
-        },
-        uniforms: {
-          m: "f32",
-          b: "f32",
-        },
-        outputs: { near_field: "rgba8unorm" },
-        source: `near_field = 
-          vec4f(color.rgb, params.m * depth.x + params.b);
-        `,
-      }),
-
-      farFieldDepthMask: createSimpleFilterPipeline(device, {
-        inputs: {
-          color: {},
-          depth: {},
-        },
-        uniforms: {
-          m: "f32",
-          b: "f32",
-        },
-        outputs: { far_field: "rgba8unorm" },
-        source: `far_field = mix(
-          vec4f(0.0, 0.0, 0.0, 1.0),
-          color,
-          clamp(
-            params.m * depth.x + params.b, 
-            0.0, 1.0)
-        );`,
-      }),
-
       maxFilter: createSimpleFilterPipeline(device, {
         inputs: { color: {} },
         uniforms: {
