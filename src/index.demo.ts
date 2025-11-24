@@ -182,54 +182,55 @@ async function main() {
     },
   });
 
-  for (let i = 0; i < 10; i++) {
-    for (let j = 0; j < 10; j++) {
-      const testEntity = sys.entity({
-        // transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-        // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
-        transform: translate([2 * i - 5, 2 * j - 5, -(i + j + 5) * 2]),
-        sampleWebgpuRendererGeometry: {
-          vertexBuffer: mesh[0].attributes.POSITION,
-          normalBuffer: mesh[0].attributes.NORMAL,
-          size: mesh[0].count,
-          indexBuffer: mesh[0].indices!.buffer,
-          indexFormat: "uint16",
-          drawColor: [1.0, 0.4, 0.2, 1.0],
-        },
-        // rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(
-        //   rand(-1, 1),
-        //   i * 1.5 + 1,
-        //   rand(-11, -9)
-        //   // rand(-2, 2)
-        // ),
-        // rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5).setFriction(0.9),
-      });
-      entities.push(testEntity);
-    }
-  }
-
-  // for (const x of range(500)) {
-  //   const testEntity = sys.entity({
-  //     // transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-  //     // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
-  //     transform: translate([rand(-10, 10), rand(-10, 10), rand(-30, -10)]),
-  //     sampleWebgpuRendererGeometry: {
-  //       vertexBuffer: mesh[0].attributes.POSITION,
-  //       normalBuffer: mesh[0].attributes.NORMAL,
-  //       size: mesh[0].count,
-  //       indexBuffer: mesh[0].indices!.buffer,
-  //       indexFormat: "uint16",
-  //     },
-  //     // rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(
-  //     //   rand(-1, 1),
-  //     //   i * 1.5 + 1,
-  //     //   rand(-11, -9)
-  //     //   // rand(-2, 2)
-  //     // ),
-  //     // rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5).setFriction(0.9),
-  //   });
-  //   entities.push(testEntity);
+  // for (let i = 0; i < 10; i++) {
+  //   for (let j = 0; j < 10; j++) {
+  //     const testEntity = sys.entity({
+  //       // transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+  //       // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
+  //       transform: translate([2 * i - 5, 2 * j - 5, -(i + j + 5) * 2]),
+  //       sampleWebgpuRendererGeometry: {
+  //         vertexBuffer: mesh[0].attributes.POSITION,
+  //         normalBuffer: mesh[0].attributes.NORMAL,
+  //         size: mesh[0].count,
+  //         indexBuffer: mesh[0].indices!.buffer,
+  //         indexFormat: "uint16",
+  //         drawColor: [1.0, 0.4, 0.2, 1.0],
+  //       },
+  //       // rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(
+  //       //   rand(-1, 1),
+  //       //   i * 1.5 + 1,
+  //       //   rand(-11, -9)
+  //       //   // rand(-2, 2)
+  //       // ),
+  //       // rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5).setFriction(0.9),
+  //     });
+  //     entities.push(testEntity);
+  //   }
   // }
+
+  for (const x of range(500)) {
+    const testEntity = sys.entity({
+      // transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+      // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
+      transform: translate([rand(-10, 10), rand(-10, 10), rand(-30, -10)]),
+      sampleWebgpuRendererGeometry: {
+        vertexBuffer: mesh[0].attributes.POSITION,
+        normalBuffer: mesh[0].attributes.NORMAL,
+        size: mesh[0].count,
+        indexBuffer: mesh[0].indices!.buffer,
+        indexFormat: "uint16",
+        drawColor: [1.0, 0.4, 0.2, 1.0],
+      },
+      // rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(
+      //   rand(-1, 1),
+      //   i * 1.5 + 1,
+      //   rand(-11, -9)
+      //   // rand(-2, 2)
+      // ),
+      // rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5).setFriction(0.9),
+    });
+    entities.push(testEntity);
+  }
 
   // for (const x of range(100)) {
   //   const testEntity = sys.entity({
@@ -294,7 +295,7 @@ async function main() {
   const renderer = sys.subsystem(SampleWebgpuRenderer);
 
   async function loop() {
-    const projection = perspectiveWebgpu(1, 2560 / 1440, 0.1, 100);
+    const projection = perspectiveWebgpu(1, 1 / 1, 0.1, 100);
     renderer.global.projectionMatrix = projection;
 
     await sys.fixedUpdate();
