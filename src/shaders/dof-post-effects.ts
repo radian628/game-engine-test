@@ -7,6 +7,12 @@ export function blurFar(device: GPUDevice) {
       color: {},
       depth: {},
     },
+    // samplers: [
+    //   {
+    //     minFilter: "linear",
+    //     magFilter: "linear",
+    //   },
+    // ],
     outputs: {
       blurred: "rgba8unorm",
     },
@@ -60,7 +66,14 @@ export function blurNear(device: GPUDevice) {
       far: {},
       near: {},
       depth: {},
+      color: {},
     },
+    samplers: [
+      {
+        minFilter: "nearest",
+        magFilter: "nearest",
+      },
+    ],
     outputs: {
       blurred: "rgba8unorm",
     },
@@ -75,18 +88,18 @@ export function blurNear(device: GPUDevice) {
 
         blurred = vec4(0.0);
 
-        for (var i = 35; i >= 0; i--) {
+        for (var i = 0; i < ${36}; i++) {
           let offset = OFFSETS[i];
           let uv2 = uv + offset.xy / size * params.step;
 
-          var pixel = textureSample(tex_near, sampler0, uv2);
+          var pixel = textureSampleLevel(tex_near, sampler0, uv2, 0.0);
           if (pixel.a > 0.0) {
             pixel.a = max(pixel.a, 0.2);
           }
           let d = pixel.a;
           pixel.a = 1.0;
 
-          let maxdist = sqrt(${36});
+          let maxdist = sqrt(${35});
 
           let distance_factor = offset.z / maxdist;
           let distance_factor_next = offset.w / maxdist;
@@ -94,7 +107,7 @@ export function blurNear(device: GPUDevice) {
           
           var opacity = mix(
             0.0, 
-            1 / max(pow(d * maxdist * 0.7, 2.0), 1.0),
+            clamp(1.0 / max(pow(d * maxdist * 0.5, 2.0), 1.0), 0.0, 1.0),
             // clamp(depth.y - d + 0.5, 0.0, 1.0),
             min(clamp(
               (d - distance_factor) / (distance_factor_next - distance_factor)
@@ -117,15 +130,17 @@ export function blurNear(device: GPUDevice) {
           blurred = mix(blurred, pixel, opacity);
         }
 
-       blurred = mix(
+       blurred = mix(color, mix(
          far,
          blurred,
          blurred.a
          // near,
          // select(0.0, 1.0, near.a > 0)
-       );
+      ), clamp(
+        max(depth.x, depth.y) * 100.0,
+      0.0, 1.0) );
 
-       blurred.a = 1.0;
+        blurred.a = 1.0;
 
     `,
   });
@@ -137,6 +152,12 @@ export function maxFilterNear(device: GPUDevice) {
       color: {},
       depth: {},
     },
+    // samplers: [
+    //   {
+    //     minFilter: "linear",
+    //     magFilter: "linear",
+    //   },
+    // ],
     outputs: {
       blurred: "rgba8unorm",
     },
@@ -164,20 +185,21 @@ export function maxFilterNear(device: GPUDevice) {
           let distance_factor = offset.z / maxdist;
           let distance_factor_next = offset.w / maxdist;
 
-          /*
+          
           var opacity = mix(
             0.0, 
             1.0,
              clamp(
-              (d - distance_factor) / (distance_factor_next - distance_factor),
+              (d - distance_factor ) / (distance_factor_next - distance_factor) + 1.0,
               0.0, 1.0 
             ) 
-          );*/
+          );
 
+          /*
           var opacity = select(
           0.0, 1.0,
             distance_factor < d
-          );
+          );*/
 
           blurred = max(blurred, vec4f(pixel.rgb * opacity, d * opacity));
         }
@@ -193,14 +215,36 @@ export function maskOutFar(device: GPUDevice) {
       color: {},
       depth: {},
     },
+    samplers: [
+      {
+        minFilter: "linear",
+        magFilter: "linear",
+      },
+    ],
     outputs: {
       far_field: "rgba8unorm",
     },
     source: `
       far_field = color;
-      if (depth.y == 0.0) {
-        far_field.a = 0.0;
-      }
+      // if (depth.y == 1.0) {
+      //  far_field.a = 0.0;
+      // }
+    `,
+  });
+}
+
+export function generateMipmap(device: GPUDevice) {
+  return createSimpleFilterPipeline(device, {
+    inputs: {
+      x: {},
+    },
+    samplers: [{ minFilter: "linear", magFilter: "linear" }],
+    outputs: {
+      y: "rgba8unorm",
+    },
+    source: `
+      let step = vec2f(textureDimensions(tex_x));
+      y = textureSample(tex_x, sampler0, uv + vec2f(1.0) / step); 
     `,
   });
 }

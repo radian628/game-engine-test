@@ -1,6 +1,6 @@
 import { mulMat4, rotate, translate, Vec3 } from "r628";
-import { Components, specifyComponent } from "./ecs";
-import { Transform } from "./transform-component";
+import { Components, specifyComponent } from "../ecs";
+import { Transform } from "../transform-component";
 import type RAPIER from "@dimforge/rapier3d-simd";
 
 export const PhysicsWorld = specifyComponent({
@@ -24,7 +24,7 @@ export const PhysicsWorld = specifyComponent({
     };
   },
   fixedUpdate({ state, instances }) {
-    state.world.integrationParameters.dt = 0.004;
+    // state.world.integrationParameters.dt = 0.004;
     state.world.step();
   },
   onDestroy(c) {

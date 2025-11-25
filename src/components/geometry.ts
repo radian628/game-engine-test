@@ -1,7 +1,7 @@
 import { makeUniformBuffer, mulMat4, Vec4 } from "r628";
-import { GBUFFER_PASS, SampleWebgpuRenderer } from "./draw-components";
-import { specifyComponent } from "./ecs";
-import { Transform } from "./transform-component";
+import { GBUFFER_PASS, SampleWebgpuRenderer } from "./renderer";
+import { specifyComponent } from "../ecs";
+import { Transform } from "../transform-component";
 
 import GBufferRenderer from "./gbuffer.wgsl?raw";
 import GBufferRendererJSON from "gbuffer.wgsl";
@@ -116,41 +116,48 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
   },
   renderUpdate({ state, instances, subsystem, scheduleTask }) {
     scheduleTask(() => {
-      const { device, viewMatrix, projectionMatrix, textures } =
-        subsystem(SampleWebgpuRenderer).state;
+      const {
+        device,
+        viewMatrix,
+        projectionMatrix,
+        textures,
+        gBufferRenderPass,
+      } = subsystem(SampleWebgpuRenderer).state;
 
       const { gbufferPipeline } = state;
 
-      const commandEncoder = device.createCommandEncoder();
+      // const commandEncoder = device.createCommandEncoder();
 
-      const passEncoder = commandEncoder.beginRenderPass({
-        colorAttachments: [
-          {
-            view: textures.gbuffer.position.createView(),
-            clearValue: [0, 0, 0, 1],
-            loadOp: "clear",
-            storeOp: "store",
-          },
-          {
-            view: textures.gbuffer.normal.createView(),
-            clearValue: [0, 0, 0, 1],
-            loadOp: "clear",
-            storeOp: "store",
-          },
-          {
-            view: textures.gbuffer.albedo.createView(),
-            clearValue: [0, 0, 0, 1],
-            loadOp: "clear",
-            storeOp: "store",
-          },
-        ],
-        depthStencilAttachment: {
-          view: textures.gbuffer.depth,
-          depthClearValue: 1.0,
-          depthLoadOp: "clear",
-          depthStoreOp: "store",
-        },
-      });
+      const passEncoder = gBufferRenderPass;
+
+      // const passEncoder = commandEncoder.beginRenderPass({
+      //   colorAttachments: [
+      //     {
+      //       view: textures.gbuffer.position.createView(),
+      //       clearValue: [0, 0, 0, 1],
+      //       loadOp: "clear",
+      //       storeOp: "store",
+      //     },
+      //     {
+      //       view: textures.gbuffer.normal.createView(),
+      //       clearValue: [0, 0, 0, 1],
+      //       loadOp: "clear",
+      //       storeOp: "store",
+      //     },
+      //     {
+      //       view: textures.gbuffer.albedo.createView(),
+      //       clearValue: [0, 0, 0, 1],
+      //       loadOp: "clear",
+      //       storeOp: "store",
+      //     },
+      //   ],
+      //   depthStencilAttachment: {
+      //     view: textures.gbuffer.depth,
+      //     depthClearValue: 1.0,
+      //     depthLoadOp: "clear",
+      //     depthStoreOp: "store",
+      //   },
+      // });
 
       for (const i of instances) {
         const buf = makeUniformBuffer<typeof GBufferRendererJSON, 0, 0>(
@@ -158,6 +165,7 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
           0,
           0,
           {
+            m: i.entity.transform.matrix,
             mvp: mulMat4(
               projectionMatrix,
               mulMat4(viewMatrix, i.entity.transform.matrix)
@@ -175,9 +183,9 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
         passEncoder.setBindGroup(0, i.data.bindGroup);
         passEncoder.drawIndexed(i.data.vertexCount);
       }
-      passEncoder.end();
+      // passEncoder.end();
 
-      device.queue.submit([commandEncoder.finish()]);
+      // device.queue.submit([commandEncoder.finish()]);
 
       return Promise.resolve();
     }, [GBUFFER_PASS]);

@@ -10,7 +10,7 @@ import {
   Vec2,
   Vec3,
 } from "r628";
-import { specifyComponent } from "./ecs";
+import { specifyComponent } from "../ecs";
 import {
   createDofDownsampleShaderPipeline,
   createDofPositionToDepth,
@@ -18,15 +18,17 @@ import {
   runDofDownsample,
   runDofPositionToDepth,
   runDofShaderPipeline,
-} from "./shaders/dof";
-import { createKernelShaderPipeline } from "./shaders/kernel";
-import { createSimpleFilterPipeline } from "./shaders/simple-filter";
+} from "../shaders/dof";
+import { createKernelShaderPipeline } from "../shaders/kernel";
+import { createSimpleFilterPipeline } from "../shaders/simple-filter";
 import {
   blurFar,
   blurNear,
+  generateMipmap,
   maskOutFar,
   maxFilterNear,
-} from "./shaders/dof-post-effects";
+} from "../shaders/dof-post-effects";
+import { inv4 } from "../matrix";
 
 export const MainCanvas = specifyComponent({
   create() {
@@ -48,6 +50,8 @@ export const MainCanvas = specifyComponent({
 });
 
 export const GBUFFER_PASS = Symbol("GBuffer Pass");
+
+export const GBUFFER_SUBMIT = Symbol("GBuffer Submit");
 
 export const LIGHTING_PASS = Symbol("Lighting Pass");
 
@@ -93,28 +97,33 @@ function createGBufferTextures(device: GPUDevice, dimensions: Vec2) {
 }
 
 function createLightingTextures(device: GPUDevice, dimensions: Vec2) {
-  const screenSizedTexture = (scaleFactor: number, format: GPUTextureFormat) =>
+  const screenSizedTexture = (
+    scaleFactor: number,
+    format: GPUTextureFormat,
+    mipLevelCount: number
+  ) =>
     device.createTexture({
       size: dimensions.map((d) => Math.ceil(d * scaleFactor)),
       format,
+      mipLevelCount,
       usage:
         GPUTextureUsage.RENDER_ATTACHMENT |
         GPUTextureUsage.COPY_DST |
         GPUTextureUsage.TEXTURE_BINDING,
     });
 
-  const color = screenSizedTexture(1, "rgba8unorm");
-  const color2 = screenSizedTexture(1, "rgba8unorm");
+  const color = screenSizedTexture(1, "rgba8unorm", 2);
+  const color2 = screenSizedTexture(1, "rgba8unorm", 1);
 
   return {
     color,
     color2,
-    depth: screenSizedTexture(1, "rg8unorm"),
-    depth2: screenSizedTexture(1, "rg8unorm"),
-    nearField: screenSizedTexture(1, "rgba8unorm"),
-    nearField2: screenSizedTexture(1, "rgba8unorm"),
-    farField: screenSizedTexture(1, "rgba8unorm"),
-    farField2: screenSizedTexture(1, "rgba8unorm"),
+    depth: screenSizedTexture(1, "rg8unorm", 1),
+    depth2: screenSizedTexture(1, "rg8unorm", 1),
+    nearField: screenSizedTexture(1, "rgba8unorm", 1),
+    nearField2: screenSizedTexture(1, "rgba8unorm", 1),
+    farField: screenSizedTexture(1, "rgba8unorm", 1),
+    farField2: screenSizedTexture(1, "rgba8unorm", 1),
   };
 }
 
@@ -224,6 +233,14 @@ export const SampleWebgpuRenderer = specifyComponent({
     const onResizeCallbacks = new Set<() => void>();
 
     return {
+      fog: createSimpleFilterPipeline(device, {
+        inputs: { color: {}, position: {} },
+        outputs: { fogged: "rgba8unorm" },
+        source: `
+        fogged = mix(vec4(0.0,0.0,0.0,1.0),color,  1.0 + 0.0 * exp(position.z * -0.02));
+        `,
+      }),
+
       blit: createSimpleFilterPipeline(device, {
         inputs: { x: {} },
         outputs: { y: "rgba8unorm" },
@@ -233,7 +250,22 @@ export const SampleWebgpuRenderer = specifyComponent({
       blitToCanvas: createSimpleFilterPipeline(device, {
         inputs: { x: {} },
         outputs: { y: format as "bgra8unorm" },
-        source: "y = x;",
+        source: "y = mix(vec4f(1.0,0.0,0.0,1.0), vec4f(x.rgb, 1.0), x.a);",
+      }),
+
+      finalComposite: createSimpleFilterPipeline(device, {
+        inputs: { original: {}, blurred: {} },
+        outputs: { y: format as "bgra8unorm" },
+        source: `y = mix(original, blurred, blurred.a);
+        y.a = 1.0;`,
+      }),
+
+      debugBlitToCanvas: createSimpleFilterPipeline(device, {
+        inputs: { x: {} },
+        outputs: { y: format as "bgra8unorm" },
+        source: `
+        y = x;
+        y.a = 1.0;`,
       }),
 
       maxFilter: createSimpleFilterPipeline(device, {
@@ -311,6 +343,7 @@ export const SampleWebgpuRenderer = specifyComponent({
           position: {},
         },
         uniforms: {
+          inv_v: "mat4x4f",
           near_threshold: "f32",
           focus: "f32",
           far_threshold: "f32",
@@ -321,8 +354,8 @@ export const SampleWebgpuRenderer = specifyComponent({
         source: `
           let depth = position.z;
           combined = vec2f(
-            1.0 - (depth - params.near_threshold) / (params.focus - params.near_threshold),
-            -(params.focus - depth) / (params.far_threshold - params.focus)
+            1.0 - (depth - params.near_threshold) / (params.focus - params.near_threshold) + 0.0 / 256.0,
+            -(params.focus - depth) / (params.far_threshold - params.focus) + 0.0 / 256.0
           );
         `,
       }),
@@ -353,6 +386,8 @@ export const SampleWebgpuRenderer = specifyComponent({
         },
         format
       ),
+
+      generateMipmap: generateMipmap(device),
 
       verticalBoxBlur: createKernelShaderPipeline(
         device,
@@ -405,10 +440,75 @@ export const SampleWebgpuRenderer = specifyComponent({
           },
         ] as const;
       },
+      gBufferRenderPass: undefined as GPURenderPassEncoder,
+      // commandEncoder: undefined as GPUCommandEncoder,
+      time: 0,
     };
   },
   renderUpdate({ state, scheduleTask }) {
     const { device, textures, fullscreenQuad } = state;
+
+    const encoder = device.createCommandEncoder();
+    // state.commandEncoder = encoder;
+    const gbufferPass = encoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: textures.gbuffer.position.createView(),
+          clearValue: [0, 0, 0, 1],
+          loadOp: "clear",
+          storeOp: "store",
+        },
+        {
+          view: textures.gbuffer.normal.createView(),
+          clearValue: [0, 0, 0, 1],
+          loadOp: "clear",
+          storeOp: "store",
+        },
+        {
+          view: textures.gbuffer.albedo.createView(),
+          clearValue: [0, 0, 0, 1],
+          loadOp: "clear",
+          storeOp: "store",
+        },
+      ],
+      depthStencilAttachment: {
+        view: textures.gbuffer.depth,
+        depthClearValue: 1.0,
+        depthLoadOp: "clear",
+        depthStoreOp: "store",
+      },
+    });
+
+    state.gBufferRenderPass = gbufferPass;
+
+    scheduleTask(
+      () => {
+        gbufferPass.end();
+        device.queue.submit([encoder.finish()]);
+        return Promise.resolve();
+      },
+      [GBUFFER_SUBMIT],
+      [GBUFFER_PASS]
+    );
+
+    // scheduleTask(
+    //   () => {
+    //     // console.log("after lighting");
+    //     const encoder = device.createCommandEncoder();
+
+    //     state.debugBlitToCanvas.withInputs({
+    //       n: textures.gbuffer.normal.createView(),
+    //       l: textures.lighting.color.createView(),
+    //     })(undefined)(encoder, {
+    //       y: state.ctx.getCurrentTexture().createView(),
+    //     });
+
+    //     device.queue.submit([encoder.finish()]);
+    //     return Promise.resolve();
+    //   },
+    //   [],
+    //   [LIGHTING_PASS]
+    // );
 
     scheduleTask(
       () => {
@@ -491,9 +591,13 @@ export const SampleWebgpuRenderer = specifyComponent({
           });
         }
 
-        const nearThreshold = 5;
-        const focus = 10;
-        const farThreshold = 20;
+        state.time += 1 / 60;
+
+        // const focus = Math.sin(state.time * 2) * 20 + 25;
+        const focus = 20;
+        const dofSize = 0.7;
+        const nearThreshold = 0; // focus * (1 - dofSize);
+        const farThreshold = focus * (1 + dofSize);
 
         const farM = 1 / (farThreshold - focus);
         const farB = -focus * farM;
@@ -508,22 +612,32 @@ export const SampleWebgpuRenderer = specifyComponent({
             near_threshold: nearThreshold,
             focus: focus,
             far_threshold: farThreshold,
+            inv_v: inv4(state.viewMatrix),
           })
         )(commandEncoder, {
           combined: textures.lighting.depth.createView(),
         });
 
-        state.maskOutFar.withInputs({
+        state.fog.withInputs({
+          position: textures.gbuffer.position.createView(),
           color: textures.lighting.color.createView(),
+        })(undefined)(commandEncoder, {
+          fogged: textures.lighting.color2.createView(),
+        });
+
+        state.maskOutFar.withInputs({
+          color: textures.lighting.color2.createView(),
           depth: textures.lighting.depth.createView(),
         })(undefined)(commandEncoder, {
           far_field: textures.lighting.farField.createView(),
         });
 
+        const step: Vec2 = [1.29, 1.29];
+
         state.blurFar.withInputs({
           color: textures.lighting.farField.createView(),
           depth: textures.lighting.depth.createView(),
-        })(state.blurFar.makeUniformBuffer().setBuffer({ step: [1, 1] }))(
+        })(state.blurFar.makeUniformBuffer().setBuffer({ step: [2, 2] }))(
           commandEncoder,
           {
             blurred: textures.lighting.farField2.createView(),
@@ -531,28 +645,63 @@ export const SampleWebgpuRenderer = specifyComponent({
         );
 
         state.maxFilterNear.withInputs({
-          color: textures.lighting.color.createView(),
+          color: textures.lighting.color2.createView(),
           depth: textures.lighting.depth.createView(),
-        })(state.maxFilterNear.makeUniformBuffer().setBuffer({ step: [1, 1] }))(
+        })(state.maxFilterNear.makeUniformBuffer().setBuffer({ step }))(
           commandEncoder,
           {
-            blurred: textures.lighting.nearField2.createView(),
+            blurred: textures.lighting.nearField2.createView({
+              mipLevelCount: 1,
+            }),
           }
         );
+
+        // for (let [mip0, mip1] of [
+        //   [0, 1],
+        //   [1, 2],
+        // ])
+        //   state.generateMipmap.withInputs({
+        //     x: textures.lighting.nearField2.createView({
+        //       baseMipLevel: mip0,
+        //       mipLevelCount: 1,
+        //     }),
+        //   })(undefined)(commandEncoder, {
+        //     y: textures.lighting.nearField2.createView({
+        //       baseMipLevel: mip1,
+        //       mipLevelCount: 1,
+        //     }),
+        //   });
+
+        // fastBoxBlur(
+        //   textures.lighting.nearField2,
+        //   textures.lighting.nearField,
+        //   [6, 6]
+        // );
 
         state.blurNear.withInputs({
           far: textures.lighting.farField2.createView(),
           near: textures.lighting.nearField2.createView(),
           depth: textures.lighting.depth.createView(),
-        })(state.blurNear.makeUniformBuffer().setBuffer({ step: [1, 1] }))(
+          color: textures.lighting.color2.createView(),
+        })(state.blurNear.makeUniformBuffer().setBuffer({ step }))(
           commandEncoder,
           {
-            blurred: textures.lighting.color2.createView(),
+            blurred: textures.lighting.color.createView({
+              mipLevelCount: 1,
+            }),
           }
         );
 
+        // state.debugBlitToCanvas.withInputs({
+        //   // original: textures.lighting.color2.createView(),
+        //   // blurred: textures.lighting.color.createView(),
+        //   x: textures.gbuffer.normal.createView(),
+        // })(undefined)(commandEncoder, {
+        //   y: state.ctx.getCurrentTexture().createView(),
+        // });
+
         state.blitToCanvas.withInputs({
-          x: textures.lighting.color2.createView(),
+          x: textures.lighting.color.createView(),
         })(undefined)(commandEncoder, {
           y: state.ctx.getCurrentTexture().createView(),
         });
@@ -562,7 +711,7 @@ export const SampleWebgpuRenderer = specifyComponent({
         return Promise.resolve();
       },
       [],
-      [LIGHTING_PASS, GBUFFER_PASS]
+      [LIGHTING_PASS]
     );
   },
   brand: "sampleWebgpuRenderer" as const,

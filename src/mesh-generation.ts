@@ -1,5 +1,5 @@
 import { cartesianProduct, rescale, Vec2, Vec3 } from "r628";
-import { createBufferFromData as createGPUBufferFromData } from "./draw-components";
+import { createBufferFromData as createGPUBufferFromData } from "./components/renderer";
 
 export type MeshSpec = {
   vertices: Float32Array;

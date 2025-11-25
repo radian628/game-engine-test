@@ -14,7 +14,7 @@ export async function scheduleAndCompleteAsynchronousTaskGraph<Tag, T>(
   }
 
   function runTaskIfNotStarted(t: (typeof tasks)[number]) {
-    if (started.has(t)) return;
+    if (started.has(t)) return started.get(t);
     const taskWithDependencies = (async () => {
       let waitUntilTheseDone: Promise<any>[] = [];
       for (const tagToWaitFor of t.waitFor) {

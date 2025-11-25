@@ -1,6 +1,6 @@
 import { download } from "r628";
-import { MainCanvas } from "./draw-components";
-import { specifyComponent } from "./ecs";
+import { MainCanvas } from "./renderer";
+import { specifyComponent } from "../ecs";
 
 export const VideoRenderer = specifyComponent({
   create() {},

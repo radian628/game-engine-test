@@ -8,6 +8,7 @@
     "esbuild-plugin-copy": "^2.1.1",
     "esbuild-plugin-wasm": "^1.1.0",
     "mediabunny": "^1.25.0",
+    "ml-matrix": "^6.12.1",
     "r628": "^0.1.19"
   }
 }

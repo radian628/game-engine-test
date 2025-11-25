@@ -18,6 +18,8 @@ struct LightingFragOutput {
 
 struct Params {
   mvp: mat4x4f,
+  vp: mat4x4f,
+  m: mat4x4f,
   light_pos: vec4f,
   light_color: vec3f,
   quadratic: f32,
@@ -32,7 +34,8 @@ struct Params {
 fn VSMain(input: LightingVertInput) -> LightingFragInput {
   var frag: LightingFragInput;
   var pos = params.mvp * vec4(input.sample_pos, 1.0);
-  frag.tex_pos = (pos.xy / pos.w) * 0.5 + 0.5;
+  // var pos2 = params.vp * vec4(input.sample_pos, 1.0);
+  frag.tex_pos = ((pos.xy ) / ((pos.w - 0.0) * 1.0)) * 0.5 + 0.5;
   frag.tex_pos.y = 1.0 - frag.tex_pos.y;
   frag.vertex_position = pos;
   return frag;
@@ -44,23 +47,24 @@ fn FSMain(input: LightingFragInput) -> LightingFragOutput {
   // _ = tex_pos;
   // _ = tex_albedo;
   // _ = tex_normal;
-
+  let uv = input.vertex_position.xy / vec2f(textureDimensions(tex_pos).xy);
   
 
-  let albedo = textureSample(tex_albedo, tex_sampler, input.tex_pos);
-  let pos = textureSample(tex_pos, tex_sampler, input.tex_pos);
-  let normal = textureSample(tex_normal, tex_sampler, input.tex_pos);
 
-  let vec_to_light = params.light_pos.xyz - pos.xyz;
+  let albedo = textureSample(tex_albedo, tex_sampler, uv);
+  let pos = textureSample(tex_pos, tex_sampler, uv);
+  let normal = textureSample(tex_normal, tex_sampler, uv);
+
+  let vec_to_light = (params.m * vec4f(0.0,0.0, 0.0, 1.0)).xyz - pos.xyz;
   let dist_to_light = length(vec_to_light);
-  let dir_to_light = vec_to_light / dist_to_light;
+  let dir_to_light = vec4f(vec_to_light / dist_to_light, 0.0).xyz;
 
   let attenuation = 
     params.quadratic * dist_to_light * dist_to_light
     + params.linear * dist_to_light
     + params.constant;
 
-  var brightness = 1.0 / attenuation;
+  var brightness = 1.0 / attenuation + 0.3;
 
   brightness = brightness * min(
     1.0, 
@@ -77,6 +81,17 @@ fn FSMain(input: LightingFragInput) -> LightingFragOutput {
   o.color.a = 1.0;
 
   o.color = pow(o.color, vec4(1 / 2.2));
+
+  // o.color = vec4f(dir_to_light.xyz * 0.5 + 0.5, 1.0);
+  // o.color = vec4f(normal.xyz * 0.5 + 0.5, 1.0);
+  o.color = vec4f(max(dot(
+   normal.xyz,
+   dir_to_light
+  ), 0.0) * 1.0);
+  
+  o.color.a = 1.0;
+
+  // o.color = vec4(1.0, 0.0, 0.0, 1.0);
 
   return o;
 } 

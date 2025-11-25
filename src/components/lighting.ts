@@ -1,15 +1,24 @@
-import { makeUniformBuffer, mulMat4, mulMat4ByVec4, scale, Vec3 } from "r628";
+import {
+  makeUniformBuffer,
+  mulMat4,
+  mulMat4ByVec4,
+  rotate,
+  scale,
+  Vec3,
+} from "r628";
 import {
   GBUFFER_PASS,
+  GBUFFER_SUBMIT,
   LIGHTING_PASS,
   SampleWebgpuRenderer,
-} from "./draw-components";
-import { uploadIndexedMeshToGPU, uvSphere } from "./mesh-generation";
+} from "./renderer";
+import { uploadIndexedMeshToGPU, uvSphere } from "../mesh-generation";
 
 import LightingRenderer from "./lighting.wgsl?raw";
 import LightingRendererJSON from "lighting.wgsl";
-import { specifyComponent } from "./ecs";
-import { Transform } from "./transform-component";
+import { specifyComponent } from "../ecs";
+import { Transform } from "../transform-component";
+import { inv4 } from "../matrix";
 
 export const PointLightSource = specifyComponent({
   async init(subsystem) {
@@ -71,7 +80,7 @@ export const PointLightSource = specifyComponent({
               {
                 shaderLocation: 0,
                 offset: 0,
-                format: "float32x2",
+                format: "float32x3",
               },
             ],
           },
@@ -99,7 +108,7 @@ export const PointLightSource = specifyComponent({
           },
         ],
       },
-      primitive: { topology: "triangle-list", cullMode: "front" },
+      primitive: { topology: "triangle-list", cullMode: "back" },
     });
     const pointLightGeometry = uploadIndexedMeshToGPU(
       device,
@@ -116,6 +125,7 @@ export const PointLightSource = specifyComponent({
 
     await onResize(async () => {
       const gbuffer = (await subsystem(SampleWebgpuRenderer)).textures.gbuffer;
+      console.log("eeeeeeeeeeeeeeeeeeee");
       state.lightingBindGroup = device.createBindGroup({
         layout: lightingBindGroupLayout,
         entries: [
@@ -222,22 +232,30 @@ export const PointLightSource = specifyComponent({
               )) /
             (2 * i.data.quadratic);
 
-          const mvp = mulMat4(
-            projectionMatrix,
-            mulMat4(
-              mulMat4(viewMatrix, i.entity.transform.matrix),
-              scale([rad, rad, rad])
-            )
+          const m = mulMat4(i.entity.transform.matrix, scale([rad, rad, rad]));
+
+          const vp = mulMat4(projectionMatrix, viewMatrix);
+
+          const mvp = mulMat4(vp, m);
+
+          const lightPos = mulMat4ByVec4(
+            mvp,
+            //i.entity.transform.matrix,
+            [0, 0, 0, 1]
           );
+
+          console.log(lightPos);
 
           const buf = makeUniformBuffer<typeof LightingRendererJSON, 1, 0>(
             LightingRendererJSON,
             1,
             0,
             {
+              vp,
               mvp,
+              m,
               light_color: i.data.color,
-              light_pos: mulMat4ByVec4(mvp, [0, 0, 0, 1]),
+              light_pos: lightPos,
               quadratic: i.data.quadratic,
               linear: i.data.linear,
               constant: i.data.constant,
@@ -260,10 +278,11 @@ export const PointLightSource = specifyComponent({
 
         device.queue.submit([commandEncoder.finish()]);
 
+        // console.log("lighting");
         return Promise.resolve();
       },
       [LIGHTING_PASS],
-      [GBUFFER_PASS]
+      [GBUFFER_SUBMIT]
     );
   },
   dependencies: [Transform] as const,
