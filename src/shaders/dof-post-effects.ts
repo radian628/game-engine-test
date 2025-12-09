@@ -94,7 +94,7 @@ export function blurNear(device: GPUDevice) {
 
           var pixel = textureSampleLevel(tex_near, sampler0, uv2, 0.0);
           if (pixel.a > 0.0) {
-            pixel.a = max(pixel.a, 0.2);
+            pixel.a = max(pixel.a, 0.01);
           }
           let d = pixel.a;
           pixel.a = 1.0;
@@ -107,7 +107,8 @@ export function blurNear(device: GPUDevice) {
           
           var opacity = mix(
             0.0, 
-            clamp(1.0 / max(pow(d * maxdist * 0.5, 2.0), 1.0), 0.0, 1.0),
+            clamp(1.0 / (d * maxdist), 0.1, 1.0),
+            // clamp(1.0 / max(pow(d * maxdist * 1.5, 1.0), 1.0), 0.0, 1.0),
             // clamp(depth.y - d + 0.5, 0.0, 1.0),
             min(clamp(
               (d - distance_factor) / (distance_factor_next - distance_factor)
@@ -127,7 +128,7 @@ export function blurNear(device: GPUDevice) {
           ); */
 
           // blurred += pixel * opacity;
-          blurred = mix(blurred, pixel, opacity);
+           blurred = mix(blurred, pixel, opacity);
         }
 
        blurred = mix(color, mix(

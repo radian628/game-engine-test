@@ -40,7 +40,7 @@ fn VSMain(input: ParticlesVertInput) -> ParticlesFragInput {
     vec2( 1.0,  1.0),
     vec2(-1.0, -1.0),
     vec2(-1.0,  1.0),
-  )[input.vindex] * 0.25, 1.0, 1.0) + center;
+  )[input.vindex] * 0.03, 1.0, 1.0) + center;
 
   frag.vertex_position = frag.pos;
 
@@ -60,6 +60,16 @@ fn VSMain(input: ParticlesVertInput) -> ParticlesFragInput {
 @fragment
 fn FSMain(input: ParticlesFragInput) -> ParticlesFragOutput {
   var o: ParticlesFragOutput;
+
+  let ipos = vec2i(input.vertex_position.xy);
+
+  // if (
+  //   input.pos.z < 10.0
+  //   && (ipos.x + ipos.y) % 4 != 0
+  // ) {
+  //   discard;
+  // }
+
   o.pos = input.pos;
   o.normal = input.normal;
   o.albedo = input.albedo;

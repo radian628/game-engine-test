@@ -41,13 +41,13 @@ declare module "particles.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 150568,
+            "id": 95,
             "line": 25,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 150569,
+            "id": 96,
             "line": 25,
             "name": "binding",
             "value": "0"

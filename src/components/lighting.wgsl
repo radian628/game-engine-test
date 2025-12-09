@@ -18,7 +18,7 @@ struct LightingFragOutput {
 
 struct Params {
   mvp: mat4x4f,
-  vp: mat4x4f,
+  inv_vp: mat4x4f,
   m: mat4x4f,
   light_pos: vec4f,
   light_color: vec3f,
@@ -48,11 +48,9 @@ fn FSMain(input: LightingFragInput) -> LightingFragOutput {
   // _ = tex_albedo;
   // _ = tex_normal;
   let uv = input.vertex_position.xy / vec2f(textureDimensions(tex_pos).xy);
-  
-
 
   let albedo = textureSample(tex_albedo, tex_sampler, uv);
-  let pos = textureSample(tex_pos, tex_sampler, uv);
+  let pos = params.inv_vp * textureSample(tex_pos, tex_sampler, uv);
   let normal = textureSample(tex_normal, tex_sampler, uv);
 
   let vec_to_light = (params.m * vec4f(0.0,0.0, 0.0, 1.0)).xyz - pos.xyz;
@@ -84,12 +82,12 @@ fn FSMain(input: LightingFragInput) -> LightingFragOutput {
 
   // o.color = vec4f(dir_to_light.xyz * 0.5 + 0.5, 1.0);
   // o.color = vec4f(normal.xyz * 0.5 + 0.5, 1.0);
-  o.color = vec4f(max(dot(
-   normal.xyz,
-   dir_to_light
-  ), 0.0) * 1.0);
+  // o.color = vec4f(max(dot(
+  //  normal.xyz,
+  //  dir_to_light
+  // ), 0.0) * 1.0);
   
-  o.color.a = 1.0;
+  // o.color.a = 1.0;
 
   // o.color = vec4(1.0, 0.0, 0.0, 1.0);
 

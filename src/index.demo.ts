@@ -198,9 +198,9 @@ async function main() {
     device,
     new Float32Array(
       range(particleCount).flatMap((x) => [
-        rand(-50, 50),
-        rand(-50, 50),
-        rand(-100, 0),
+        rand(-10, 10),
+        rand(-10, 10),
+        rand(-40, 0),
         0,
       ])
     ),
@@ -456,8 +456,8 @@ async function main() {
     transform: translate([0, 0, -40]),
     pointLightSource: {
       color: [1, 1, 1],
-      quadratic: 0.3,
-      linear: 0.2,
+      quadratic: 0.03,
+      linear: 0.02,
       constant: 1,
     },
   });

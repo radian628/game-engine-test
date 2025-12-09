@@ -237,7 +237,7 @@ export const SampleWebgpuRenderer = specifyComponent({
         inputs: { color: {}, position: {} },
         outputs: { fogged: "rgba8unorm" },
         source: `
-        fogged = mix(vec4(0.0,0.0,0.0,1.0),color,  1.0 + 0.0 * exp(position.z * -0.02));
+        fogged = mix(vec4(0.12,0.13,0.14,1.0),color, exp(position.z * -0.05));
         `,
       }),
 
@@ -594,7 +594,7 @@ export const SampleWebgpuRenderer = specifyComponent({
         state.time += 1 / 60;
 
         // const focus = Math.sin(state.time * 2) * 20 + 25;
-        const focus = 20;
+        const focus = 10;
         const dofSize = 0.7;
         const nearThreshold = 0; // focus * (1 - dofSize);
         const farThreshold = focus * (1 + dofSize);
@@ -632,7 +632,7 @@ export const SampleWebgpuRenderer = specifyComponent({
           far_field: textures.lighting.farField.createView(),
         });
 
-        const step: Vec2 = [1.29, 1.29];
+        const step: Vec2 = [1, 1];
 
         state.blurFar.withInputs({
           color: textures.lighting.farField.createView(),
@@ -647,7 +647,7 @@ export const SampleWebgpuRenderer = specifyComponent({
         state.maxFilterNear.withInputs({
           color: textures.lighting.color2.createView(),
           depth: textures.lighting.depth.createView(),
-        })(state.maxFilterNear.makeUniformBuffer().setBuffer({ step }))(
+        })(state.maxFilterNear.makeUniformBuffer().setBuffer({ step: [0, 0] }))(
           commandEncoder,
           {
             blurred: textures.lighting.nearField2.createView({

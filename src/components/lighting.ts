@@ -125,7 +125,6 @@ export const PointLightSource = specifyComponent({
 
     await onResize(async () => {
       const gbuffer = (await subsystem(SampleWebgpuRenderer)).textures.gbuffer;
-      console.log("eeeeeeeeeeeeeeeeeeee");
       state.lightingBindGroup = device.createBindGroup({
         layout: lightingBindGroupLayout,
         entries: [
@@ -244,14 +243,12 @@ export const PointLightSource = specifyComponent({
             [0, 0, 0, 1]
           );
 
-          console.log(lightPos);
-
           const buf = makeUniformBuffer<typeof LightingRendererJSON, 1, 0>(
             LightingRendererJSON,
             1,
             0,
             {
-              vp,
+              inv_vp: inv4(vp),
               mvp,
               m,
               light_color: i.data.color,
