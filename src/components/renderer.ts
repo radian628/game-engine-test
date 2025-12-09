@@ -205,7 +205,7 @@ function intervalInclusive(a: number, b: number): number[] {
   return range(b - a + 1).map((i) => i - a);
 }
 
-export const SampleWebgpuRenderer = specifyComponent({
+export const DeferredWebgpuRenderer = specifyComponent({
   create() {
     return undefined;
   },
@@ -445,6 +445,7 @@ export const SampleWebgpuRenderer = specifyComponent({
       time: 0,
     };
   },
+
   renderUpdate({ state, scheduleTask }) {
     const { device, textures, fullscreenQuad } = state;
 
@@ -510,211 +511,211 @@ export const SampleWebgpuRenderer = specifyComponent({
     //   [LIGHTING_PASS]
     // );
 
-    scheduleTask(
-      () => {
-        const commandEncoder = device.createCommandEncoder();
+    // scheduleTask(
+    //   () => {
+    //     const commandEncoder = device.createCommandEncoder();
 
-        function fastBoxBlur(input: GPUTexture, temp: GPUTexture, dims: Vec2) {
-          state.boxBlur.withInputs({
-            color: input.createView(),
-          })(
-            state.boxBlur.makeUniformBuffer().setBuffer({
-              dims: [dims[0], 0],
-            })
-          )(commandEncoder, {
-            blurred: temp.createView(),
-          });
+    //     function fastBoxBlur(input: GPUTexture, temp: GPUTexture, dims: Vec2) {
+    //       state.boxBlur.withInputs({
+    //         color: input.createView(),
+    //       })(
+    //         state.boxBlur.makeUniformBuffer().setBuffer({
+    //           dims: [dims[0], 0],
+    //         })
+    //       )(commandEncoder, {
+    //         blurred: temp.createView(),
+    //       });
 
-          state.boxBlur.withInputs({
-            color: temp.createView(),
-          })(
-            state.boxBlur.makeUniformBuffer().setBuffer({
-              dims: [0, dims[1]],
-            })
-          )(commandEncoder, {
-            blurred: input.createView(),
-          });
-        }
+    //       state.boxBlur.withInputs({
+    //         color: temp.createView(),
+    //       })(
+    //         state.boxBlur.makeUniformBuffer().setBuffer({
+    //           dims: [0, dims[1]],
+    //         })
+    //       )(commandEncoder, {
+    //         blurred: input.createView(),
+    //       });
+    //     }
 
-        function fastMaxFilter(
-          input: GPUTexture,
-          temp: GPUTexture,
-          dims: Vec2
-        ) {
-          state.maxFilter.withInputs({
-            color: input.createView(),
-          })(
-            state.maxFilter.makeUniformBuffer().setBuffer({
-              dims: [dims[0], 0],
-            })
-          )(commandEncoder, {
-            blurred: temp.createView(),
-          });
+    //     function fastMaxFilter(
+    //       input: GPUTexture,
+    //       temp: GPUTexture,
+    //       dims: Vec2
+    //     ) {
+    //       state.maxFilter.withInputs({
+    //         color: input.createView(),
+    //       })(
+    //         state.maxFilter.makeUniformBuffer().setBuffer({
+    //           dims: [dims[0], 0],
+    //         })
+    //       )(commandEncoder, {
+    //         blurred: temp.createView(),
+    //       });
 
-          state.maxFilter.withInputs({
-            color: temp.createView(),
-          })(
-            state.maxFilter.makeUniformBuffer().setBuffer({
-              dims: [0, dims[1]],
-            })
-          )(commandEncoder, {
-            blurred: input.createView(),
-          });
-        }
+    //       state.maxFilter.withInputs({
+    //         color: temp.createView(),
+    //       })(
+    //         state.maxFilter.makeUniformBuffer().setBuffer({
+    //           dims: [0, dims[1]],
+    //         })
+    //       )(commandEncoder, {
+    //         blurred: input.createView(),
+    //       });
+    //     }
 
-        function fastFarFieldMaxFilter(
-          input: GPUTexture,
-          temp: GPUTexture,
-          dims: Vec2,
-          delta: Vec2
-        ) {
-          state.farFieldMaxFilter.withInputs({
-            color: input.createView(),
-          })(
-            state.farFieldMaxFilter.makeUniformBuffer().setBuffer({
-              dims: [dims[0], 0],
-              delta,
-            })
-          )(commandEncoder, {
-            blurred: temp.createView(),
-          });
+    //     function fastFarFieldMaxFilter(
+    //       input: GPUTexture,
+    //       temp: GPUTexture,
+    //       dims: Vec2,
+    //       delta: Vec2
+    //     ) {
+    //       state.farFieldMaxFilter.withInputs({
+    //         color: input.createView(),
+    //       })(
+    //         state.farFieldMaxFilter.makeUniformBuffer().setBuffer({
+    //           dims: [dims[0], 0],
+    //           delta,
+    //         })
+    //       )(commandEncoder, {
+    //         blurred: temp.createView(),
+    //       });
 
-          state.farFieldMaxFilter.withInputs({
-            color: temp.createView(),
-          })(
-            state.farFieldMaxFilter.makeUniformBuffer().setBuffer({
-              dims: [0, dims[1]],
-              delta,
-            })
-          )(commandEncoder, {
-            blurred: input.createView(),
-          });
-        }
+    //       state.farFieldMaxFilter.withInputs({
+    //         color: temp.createView(),
+    //       })(
+    //         state.farFieldMaxFilter.makeUniformBuffer().setBuffer({
+    //           dims: [0, dims[1]],
+    //           delta,
+    //         })
+    //       )(commandEncoder, {
+    //         blurred: input.createView(),
+    //       });
+    //     }
 
-        state.time += 1 / 60;
+    //     state.time += 1 / 60;
 
-        // const focus = Math.sin(state.time * 2) * 20 + 25;
-        const focus = 10;
-        const dofSize = 0.7;
-        const nearThreshold = 0; // focus * (1 - dofSize);
-        const farThreshold = focus * (1 + dofSize);
+    //     // const focus = Math.sin(state.time * 2) * 20 + 25;
+    //     const focus = 10;
+    //     const dofSize = 0.7;
+    //     const nearThreshold = 0; // focus * (1 - dofSize);
+    //     const farThreshold = focus * (1 + dofSize);
 
-        const farM = 1 / (farThreshold - focus);
-        const farB = -focus * farM;
+    //     const farM = 1 / (farThreshold - focus);
+    //     const farB = -focus * farM;
 
-        const nearM = -1 / (focus - nearThreshold);
-        const nearB = -nearThreshold * nearM + 1;
+    //     const nearM = -1 / (focus - nearThreshold);
+    //     const nearB = -nearThreshold * nearM + 1;
 
-        state.generateDofDepthMask.withInputs({
-          position: textures.gbuffer.position.createView(),
-        })(
-          state.generateDofDepthMask.makeUniformBuffer().setBuffer({
-            near_threshold: nearThreshold,
-            focus: focus,
-            far_threshold: farThreshold,
-            inv_v: inv4(state.viewMatrix),
-          })
-        )(commandEncoder, {
-          combined: textures.lighting.depth.createView(),
-        });
+    //     state.generateDofDepthMask.withInputs({
+    //       position: textures.gbuffer.position.createView(),
+    //     })(
+    //       state.generateDofDepthMask.makeUniformBuffer().setBuffer({
+    //         near_threshold: nearThreshold,
+    //         focus: focus,
+    //         far_threshold: farThreshold,
+    //         inv_v: inv4(state.viewMatrix),
+    //       })
+    //     )(commandEncoder, {
+    //       combined: textures.lighting.depth.createView(),
+    //     });
 
-        state.fog.withInputs({
-          position: textures.gbuffer.position.createView(),
-          color: textures.lighting.color.createView(),
-        })(undefined)(commandEncoder, {
-          fogged: textures.lighting.color2.createView(),
-        });
+    //     state.fog.withInputs({
+    //       position: textures.gbuffer.position.createView(),
+    //       color: textures.lighting.color.createView(),
+    //     })(undefined)(commandEncoder, {
+    //       fogged: textures.lighting.color2.createView(),
+    //     });
 
-        state.maskOutFar.withInputs({
-          color: textures.lighting.color2.createView(),
-          depth: textures.lighting.depth.createView(),
-        })(undefined)(commandEncoder, {
-          far_field: textures.lighting.farField.createView(),
-        });
+    //     state.maskOutFar.withInputs({
+    //       color: textures.lighting.color2.createView(),
+    //       depth: textures.lighting.depth.createView(),
+    //     })(undefined)(commandEncoder, {
+    //       far_field: textures.lighting.farField.createView(),
+    //     });
 
-        const step: Vec2 = [1, 1];
+    //     const step: Vec2 = [1, 1];
 
-        state.blurFar.withInputs({
-          color: textures.lighting.farField.createView(),
-          depth: textures.lighting.depth.createView(),
-        })(state.blurFar.makeUniformBuffer().setBuffer({ step: [2, 2] }))(
-          commandEncoder,
-          {
-            blurred: textures.lighting.farField2.createView(),
-          }
-        );
+    //     state.blurFar.withInputs({
+    //       color: textures.lighting.farField.createView(),
+    //       depth: textures.lighting.depth.createView(),
+    //     })(state.blurFar.makeUniformBuffer().setBuffer({ step: [2, 2] }))(
+    //       commandEncoder,
+    //       {
+    //         blurred: textures.lighting.farField2.createView(),
+    //       }
+    //     );
 
-        state.maxFilterNear.withInputs({
-          color: textures.lighting.color2.createView(),
-          depth: textures.lighting.depth.createView(),
-        })(state.maxFilterNear.makeUniformBuffer().setBuffer({ step: [0, 0] }))(
-          commandEncoder,
-          {
-            blurred: textures.lighting.nearField2.createView({
-              mipLevelCount: 1,
-            }),
-          }
-        );
+    //     state.maxFilterNear.withInputs({
+    //       color: textures.lighting.color2.createView(),
+    //       depth: textures.lighting.depth.createView(),
+    //     })(state.maxFilterNear.makeUniformBuffer().setBuffer({ step: [0, 0] }))(
+    //       commandEncoder,
+    //       {
+    //         blurred: textures.lighting.nearField2.createView({
+    //           mipLevelCount: 1,
+    //         }),
+    //       }
+    //     );
 
-        // for (let [mip0, mip1] of [
-        //   [0, 1],
-        //   [1, 2],
-        // ])
-        //   state.generateMipmap.withInputs({
-        //     x: textures.lighting.nearField2.createView({
-        //       baseMipLevel: mip0,
-        //       mipLevelCount: 1,
-        //     }),
-        //   })(undefined)(commandEncoder, {
-        //     y: textures.lighting.nearField2.createView({
-        //       baseMipLevel: mip1,
-        //       mipLevelCount: 1,
-        //     }),
-        //   });
+    //     // for (let [mip0, mip1] of [
+    //     //   [0, 1],
+    //     //   [1, 2],
+    //     // ])
+    //     //   state.generateMipmap.withInputs({
+    //     //     x: textures.lighting.nearField2.createView({
+    //     //       baseMipLevel: mip0,
+    //     //       mipLevelCount: 1,
+    //     //     }),
+    //     //   })(undefined)(commandEncoder, {
+    //     //     y: textures.lighting.nearField2.createView({
+    //     //       baseMipLevel: mip1,
+    //     //       mipLevelCount: 1,
+    //     //     }),
+    //     //   });
 
-        // fastBoxBlur(
-        //   textures.lighting.nearField2,
-        //   textures.lighting.nearField,
-        //   [6, 6]
-        // );
+    //     // fastBoxBlur(
+    //     //   textures.lighting.nearField2,
+    //     //   textures.lighting.nearField,
+    //     //   [6, 6]
+    //     // );
 
-        state.blurNear.withInputs({
-          far: textures.lighting.farField2.createView(),
-          near: textures.lighting.nearField2.createView(),
-          depth: textures.lighting.depth.createView(),
-          color: textures.lighting.color2.createView(),
-        })(state.blurNear.makeUniformBuffer().setBuffer({ step }))(
-          commandEncoder,
-          {
-            blurred: textures.lighting.color.createView({
-              mipLevelCount: 1,
-            }),
-          }
-        );
+    //     state.blurNear.withInputs({
+    //       far: textures.lighting.farField2.createView(),
+    //       near: textures.lighting.nearField2.createView(),
+    //       depth: textures.lighting.depth.createView(),
+    //       color: textures.lighting.color2.createView(),
+    //     })(state.blurNear.makeUniformBuffer().setBuffer({ step }))(
+    //       commandEncoder,
+    //       {
+    //         blurred: textures.lighting.color.createView({
+    //           mipLevelCount: 1,
+    //         }),
+    //       }
+    //     );
 
-        // state.debugBlitToCanvas.withInputs({
-        //   // original: textures.lighting.color2.createView(),
-        //   // blurred: textures.lighting.color.createView(),
-        //   x: textures.gbuffer.normal.createView(),
-        // })(undefined)(commandEncoder, {
-        //   y: state.ctx.getCurrentTexture().createView(),
-        // });
+    //     // state.debugBlitToCanvas.withInputs({
+    //     //   // original: textures.lighting.color2.createView(),
+    //     //   // blurred: textures.lighting.color.createView(),
+    //     //   x: textures.gbuffer.normal.createView(),
+    //     // })(undefined)(commandEncoder, {
+    //     //   y: state.ctx.getCurrentTexture().createView(),
+    //     // });
 
-        state.blitToCanvas.withInputs({
-          x: textures.lighting.color.createView(),
-        })(undefined)(commandEncoder, {
-          y: state.ctx.getCurrentTexture().createView(),
-        });
+    //     state.blitToCanvas.withInputs({
+    //       x: textures.lighting.color.createView(),
+    //     })(undefined)(commandEncoder, {
+    //       y: state.ctx.getCurrentTexture().createView(),
+    //     });
 
-        device.queue.submit([commandEncoder.finish()]);
+    //     device.queue.submit([commandEncoder.finish()]);
 
-        return Promise.resolve();
-      },
-      [],
-      [LIGHTING_PASS]
-    );
+    //     return Promise.resolve();
+    //   },
+    //   [],
+    //   [LIGHTING_PASS]
+    // );
   },
-  brand: "sampleWebgpuRenderer" as const,
+  brand: "deferredWebgpuRenderer" as const,
   dependencies: [] as const,
   globalDependencies: [MainCanvas] as const,
 });

@@ -53,7 +53,7 @@ type SimpleFilterInputTextures = Record<
   }
 >;
 
-const TEXTURE_FORMAT_TO_WGSL_TYPE_LUT = {
+export const TEXTURE_FORMAT_TO_WGSL_TYPE_LUT = {
   r8unorm: "f32",
   r8snorm: "f32",
   r8uint: "u32",
@@ -157,10 +157,9 @@ const TEXTURE_FORMAT_TO_WGSL_TYPE_LUT = {
   // "astc-12x12-unorm-srgb";
 } as const;
 
-type SimpleFilterOutputTextures = Record<
-  string,
-  keyof typeof TEXTURE_FORMAT_TO_WGSL_TYPE_LUT
->;
+export type TextureFormat = keyof typeof TEXTURE_FORMAT_TO_WGSL_TYPE_LUT;
+
+type SimpleFilterOutputTextures = Record<string, TextureFormat>;
 
 type SimpleFilterSamplers = GPUSamplerDescriptor[];
 

@@ -1,7 +1,7 @@
 import { makeUniformBuffer, mulMat4, Vec4 } from "r628";
 import { specifyComponent } from "../ecs";
 import { Transform } from "../transform-component";
-import { GBUFFER_PASS, SampleWebgpuRenderer } from "./renderer";
+import { GBUFFER_PASS, DeferredWebgpuRenderer } from "./renderer";
 import ParticlesShader from "./particles.wgsl?raw";
 import ParticlesShaderJSON from "particles.wgsl";
 
@@ -9,7 +9,7 @@ import ParticlesForcefield from "./particle-forcefield.wgsl?raw";
 
 export const ParticleForcefield = specifyComponent({
   async init(subsystem) {
-    const { device } = await subsystem(SampleWebgpuRenderer);
+    const { device } = await subsystem(DeferredWebgpuRenderer);
 
     const particlesForcefieldPipeline = device.createComputePipeline({
       layout: "auto",
@@ -32,9 +32,9 @@ export const ParticleForcefield = specifyComponent({
       count: number;
     },
     global,
-    { sampleWebgpuRenderer }
+    { deferredWebgpuRenderer }
   ) {
-    const { device } = sampleWebgpuRenderer.state;
+    const { device } = deferredWebgpuRenderer.state;
 
     const bindGroup = device.createBindGroup({
       layout: global.state.particlesForcefieldPipeline.getBindGroupLayout(0),
@@ -70,7 +70,7 @@ export const ParticleForcefield = specifyComponent({
         projectionMatrix,
         textures,
         gBufferRenderPass,
-      } = subsystem(SampleWebgpuRenderer).state;
+      } = subsystem(DeferredWebgpuRenderer).state;
 
       const commandEncoder = device.createCommandEncoder();
       const compute = commandEncoder.beginComputePass();
@@ -88,14 +88,14 @@ export const ParticleForcefield = specifyComponent({
     }, [GBUFFER_PASS]);
   },
   dependencies: [Transform] as const,
-  globalDependencies: [SampleWebgpuRenderer] as const,
+  globalDependencies: [DeferredWebgpuRenderer] as const,
   onDestroy() {},
   brand: "particleForcefield" as const,
 });
 
 export const ParticleSystem = specifyComponent({
   async init(subsystem) {
-    const { device } = await subsystem(SampleWebgpuRenderer);
+    const { device } = await subsystem(DeferredWebgpuRenderer);
 
     const module = device.createShaderModule({
       code: ParticlesShader,
@@ -163,9 +163,9 @@ export const ParticleSystem = specifyComponent({
   create(
     params: { positionBuffer: GPUBuffer; count: number; drawColor: Vec4 },
     global,
-    { sampleWebgpuRenderer }
+    { deferredWebgpuRenderer }
   ) {
-    const { device } = sampleWebgpuRenderer.state;
+    const { device } = deferredWebgpuRenderer.state;
 
     const uniformBuffer = device.createBuffer({
       label: "uniform buffer",
@@ -203,7 +203,7 @@ export const ParticleSystem = specifyComponent({
         projectionMatrix,
         textures,
         gBufferRenderPass,
-      } = subsystem(SampleWebgpuRenderer).state;
+      } = subsystem(DeferredWebgpuRenderer).state;
 
       const { particlesPipeline } = state;
 
@@ -237,7 +237,7 @@ export const ParticleSystem = specifyComponent({
     }, [GBUFFER_PASS]);
   },
   dependencies: [Transform] as const,
-  globalDependencies: [SampleWebgpuRenderer] as const,
+  globalDependencies: [DeferredWebgpuRenderer] as const,
   onDestroy() {},
   brand: "particleSystem" as const,
 });

@@ -28,7 +28,7 @@ import {
 import {
   createBufferFromData,
   MainCanvas,
-  SampleWebgpuRenderer,
+  DeferredWebgpuRenderer,
 } from "./components/renderer";
 import { createSystem, Entity } from "./ecs";
 import { Transform } from "./transform-component";
@@ -50,6 +50,8 @@ import {
   ParticleSystem,
 } from "./components/particle-system";
 import { Keyboard, MouseFirstPerson } from "./components/input";
+import { PostprocessingPipeline } from "./components/postprocess";
+import { createSimpleFilterPipeline } from "./shaders/simple-filter";
 
 type MeshBuffers = {
   attributes: Record<string, GPUBuffer>;
@@ -164,7 +166,7 @@ async function main() {
 
   const sys = await createSystem([
     Transform,
-    SampleWebgpuRenderer,
+    DeferredWebgpuRenderer,
     SampleWebgpuRendererGeometry,
     RigidBody,
     PhysicsWorld,
@@ -175,9 +177,31 @@ async function main() {
     ParticleForcefield,
     Keyboard,
     MouseFirstPerson,
+    PostprocessingPipeline(
+      ({ device, canvas }) => {
+        return {
+          blitToCanvas: createSimpleFilterPipeline(device, {
+            inputs: { x: {} },
+            outputs: {
+              y: navigator.gpu.getPreferredCanvasFormat() as "bgra8unorm",
+            },
+            source: "y = mix(vec4f(1.0,0.0,0.0,1.0), vec4f(x.rgb, 1.0), x.a);",
+          }),
+        };
+      },
+      () => undefined,
+      ({ device, canvas, ctx, lighting }, res, g) => {
+        console.log("hiiii");
+        const encoder = device.createCommandEncoder();
+        g.blitToCanvas.withInputs({
+          x: lighting.createView(),
+        })(undefined)(encoder, { y: ctx.getCurrentTexture().createView() });
+        device.queue.submit([encoder.finish()]);
+      }
+    ),
   ]);
 
-  const device = sys.subsystem(SampleWebgpuRenderer).global.device;
+  const device = sys.subsystem(DeferredWebgpuRenderer).global.device;
 
   const mesh = gltfMeshToWebGPUBuffers(device, g.meshes[0]);
   const bg = gltfMeshToWebGPUBuffers(device, g.meshes[2]);
@@ -323,135 +347,6 @@ async function main() {
     }
   );
 
-  // for (let i = 0; i < 20; i++) {
-  //   for (let j = 0; j < 20; j++) {
-  //     const testEntity = sys.entity({
-  //       transform: translate([i * 2 - 10, j * 2 - 10, -20]),
-  //       sampleWebgpuRendererGeometry: {
-  //         vertexBuffer: mesh[0].attributes.POSITION,
-  //         normalBuffer: mesh[0].attributes.NORMAL,
-  //         size: mesh[0].count,
-  //         indexBuffer: mesh[0].indices!.buffer,
-  //         indexFormat: "uint16",
-  //         drawColor: [1.0, 0.4, 0.2, 1.0],
-  //       },
-  //     });
-  //     sys.entity({
-  //       transform: translate([i * 2 - 20, j * 2 - 20, -30]),
-  //       sampleWebgpuRendererGeometry: {
-  //         vertexBuffer: mesh[0].attributes.POSITION,
-  //         normalBuffer: mesh[0].attributes.NORMAL,
-  //         size: mesh[0].count,
-  //         indexBuffer: mesh[0].indices!.buffer,
-  //         indexFormat: "uint16",
-  //         drawColor: [1.0, 0.4, 0.2, 1.0],
-  //       },
-  //     });
-  //     sys.entity({
-  //       transform: translate([i * 2 - 20, j * 2 - 20, -60]),
-  //       sampleWebgpuRendererGeometry: {
-  //         vertexBuffer: mesh[0].attributes.POSITION,
-  //         normalBuffer: mesh[0].attributes.NORMAL,
-  //         size: mesh[0].count,
-  //         indexBuffer: mesh[0].indices!.buffer,
-  //         indexFormat: "uint16",
-  //         drawColor: [1.0, 0.4, 0.2, 1.0],
-  //       },
-  //     });
-  //     entities.push(testEntity);
-  //   }
-  // }
-
-  // for (let i = 0; i < 20; i++) {
-  //   for (let j = 0; j < 20; j++) {
-  //     const testEntity = sys.entity({
-  //       // transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-  //       // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
-  //       transform: translate([i - 5, j - 5, -(i + j + 5) * 2]),
-  //       sampleWebgpuRendererGeometry: {
-  //         vertexBuffer: mesh[0].attributes.POSITION,
-  //         normalBuffer: mesh[0].attributes.NORMAL,
-  //         size: mesh[0].count,
-  //         indexBuffer: mesh[0].indices!.buffer,
-  //         indexFormat: "uint16",
-  //         drawColor: [1.0, 0.4, 0.2, 1.0],
-  //       },
-  //       // rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(
-  //       //   rand(-1, 1),
-  //       //   i * 1.5 + 1,
-  //       //   rand(-11, -9)
-  //       //   // rand(-2, 2)
-  //       // ),
-  //       // rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5).setFriction(0.9),
-  //     });
-  //     entities.push(testEntity);
-  //   }
-  // }
-
-  // for (const x of range(500)) {
-  //   const testEntity = sys.entity({
-  //     // transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-  //     // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
-  //     transform: translate([rand(-10, 10), rand(-10, 10), rand(-30, -10)]),
-  //     sampleWebgpuRendererGeometry: {
-  //       vertexBuffer: mesh[0].attributes.POSITION,
-  //       normalBuffer: mesh[0].attributes.NORMAL,
-  //       size: mesh[0].count,
-  //       indexBuffer: mesh[0].indices!.buffer,
-  //       indexFormat: "uint16",
-  //       drawColor: [1.0, 0.4, 0.2, 1.0],
-  //     },
-  //     // rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(
-  //     //   rand(-1, 1),
-  //     //   i * 1.5 + 1,
-  //     //   rand(-11, -9)
-  //     //   // rand(-2, 2)
-  //     // ),
-  //     // rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5).setFriction(0.9),
-  //   });
-  //   entities.push(testEntity);
-  // }
-
-  // for (const x of range(100)) {
-  //   const testEntity = sys.entity({
-  //     transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-  //     // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
-  //     // transform: translate([i - 2, j - 2, -(i + j + 5)]),
-  //     sampleWebgpuRendererGeometry: {
-  //       vertexBuffer: mesh[0].attributes.POSITION,
-  //       normalBuffer: mesh[0].attributes.NORMAL,
-  //       size: mesh[0].count,
-  //       indexBuffer: mesh[0].indices!.buffer,
-  //       indexFormat: "uint16",
-  //       drawColor: [1.0, 0.5, 0.25, 1.0],
-  //     },
-  //     rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(
-  //       rand(-1, 1),
-  //       x * 1.5 + 1,
-  //       rand(-5, 5) - 50
-  //       // rand(-2, 2)
-  //     ),
-  //     rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5).setFriction(0.9),
-  //   });
-  //   entities.push(testEntity);
-  // }
-
-  for (const pos of range(30).map((l) => [
-    rand(-10, 10),
-    rand(-1, 1),
-    rand(-40, -5),
-  ]) as Vec3[]) {
-    // sys.entity({
-    //   transform: translate(pos),
-    //   pointLightSource: {
-    //     color: [1, 0.5, 0.25],
-    //     quadratic: 0.5,
-    //     linear: 0.2,
-    //     constant: 1,
-    //   },
-    // });
-  }
-
   sys.entity({
     transform: translate([0, 0, -40]),
     pointLightSource: {
@@ -472,21 +367,7 @@ async function main() {
 
   let t = 0;
 
-  // const monkeyTest = sys.entity({
-  //   transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-  //   // transform: translate([rand(-10, 10), rand(-10, 10), rand(-40, -4)]),
-  //   // transform: translate([i - 2, j - 2, -(i + j + 5)]),
-  //   sampleWebgpuRendererGeometry: {
-  //     vertexBuffer: mesh[0].attributes.POSITION,
-  //     normalBuffer: mesh[0].attributes.NORMAL,
-  //     size: mesh[0].count,
-  //     indexBuffer: mesh[0].indices!.buffer,
-  //     indexFormat: "uint16",
-  //     drawColor: [1.0, 0.5, 0.25, 1.0],
-  //   },
-  // });
-
-  const renderer = sys.subsystem(SampleWebgpuRenderer);
+  const renderer = sys.subsystem(DeferredWebgpuRenderer);
   const kbd = sys.subsystem(Keyboard).global;
   const mouse = sys.subsystem(MouseFirstPerson).global;
 

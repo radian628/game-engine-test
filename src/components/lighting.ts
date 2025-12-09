@@ -10,7 +10,7 @@ import {
   GBUFFER_PASS,
   GBUFFER_SUBMIT,
   LIGHTING_PASS,
-  SampleWebgpuRenderer,
+  DeferredWebgpuRenderer,
 } from "./renderer";
 import { uploadIndexedMeshToGPU, uvSphere } from "../mesh-generation";
 
@@ -22,8 +22,9 @@ import { inv4 } from "../matrix";
 
 export const PointLightSource = specifyComponent({
   async init(subsystem) {
-    const { device, canvasFormat, onResize } =
-      await subsystem(SampleWebgpuRenderer);
+    const { device, canvasFormat, onResize } = await subsystem(
+      DeferredWebgpuRenderer
+    );
 
     const lightingBindGroupLayout = device.createBindGroupLayout({
       entries: [
@@ -124,7 +125,8 @@ export const PointLightSource = specifyComponent({
     };
 
     await onResize(async () => {
-      const gbuffer = (await subsystem(SampleWebgpuRenderer)).textures.gbuffer;
+      const gbuffer = (await subsystem(DeferredWebgpuRenderer)).textures
+        .gbuffer;
       state.lightingBindGroup = device.createBindGroup({
         layout: lightingBindGroupLayout,
         entries: [
@@ -162,9 +164,9 @@ export const PointLightSource = specifyComponent({
       constant: number;
     },
     global,
-    { sampleWebgpuRenderer }
+    { deferredWebgpuRenderer }
   ) {
-    const { device } = sampleWebgpuRenderer.state;
+    const { device } = deferredWebgpuRenderer.state;
 
     const uniformBuffer = device.createBuffer({
       label: "uniform buffer",
@@ -200,7 +202,7 @@ export const PointLightSource = specifyComponent({
     scheduleTask(
       () => {
         const { projectionMatrix, viewMatrix, device, textures, ctx } =
-          subsystem(SampleWebgpuRenderer).state;
+          subsystem(DeferredWebgpuRenderer).state;
         const commandEncoder = device.createCommandEncoder();
 
         const passEncoder = commandEncoder.beginRenderPass({
@@ -283,7 +285,7 @@ export const PointLightSource = specifyComponent({
     );
   },
   dependencies: [Transform] as const,
-  globalDependencies: [SampleWebgpuRenderer] as const,
+  globalDependencies: [DeferredWebgpuRenderer] as const,
   brand: "pointLightSource",
   onDestroy() {},
 });

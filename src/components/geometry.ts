@@ -1,5 +1,5 @@
 import { makeUniformBuffer, mulMat4, Vec4 } from "r628";
-import { GBUFFER_PASS, SampleWebgpuRenderer } from "./renderer";
+import { GBUFFER_PASS, DeferredWebgpuRenderer } from "./renderer";
 import { specifyComponent } from "../ecs";
 import { Transform } from "../transform-component";
 
@@ -8,7 +8,7 @@ import GBufferRendererJSON from "gbuffer.wgsl";
 
 export const SampleWebgpuRendererGeometry = specifyComponent({
   async init(subsystem) {
-    const { device } = await subsystem(SampleWebgpuRenderer);
+    const { device } = await subsystem(DeferredWebgpuRenderer);
 
     const gbufferPipeline = device.createRenderPipeline({
       layout: "auto",
@@ -79,9 +79,9 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
       drawColor: Vec4;
     },
     global,
-    { sampleWebgpuRenderer }
+    { deferredWebgpuRenderer }
   ) {
-    const { device } = sampleWebgpuRenderer.state;
+    const { device } = deferredWebgpuRenderer.state;
 
     const uniformBuffer = device.createBuffer({
       label: "uniform buffer",
@@ -122,7 +122,7 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
         projectionMatrix,
         textures,
         gBufferRenderPass,
-      } = subsystem(SampleWebgpuRenderer).state;
+      } = subsystem(DeferredWebgpuRenderer).state;
 
       const { gbufferPipeline } = state;
 
@@ -192,6 +192,6 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
   },
   onDestroy() {},
   dependencies: [Transform] as const,
-  globalDependencies: [SampleWebgpuRenderer] as const,
+  globalDependencies: [DeferredWebgpuRenderer] as const,
   brand: "sampleWebgpuRendererGeometry" as const,
 });
