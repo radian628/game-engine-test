@@ -3,6 +3,18 @@ import { Components, specifyComponent } from "../ecs";
 import { Transform } from "../transform-component";
 import type RAPIER from "@dimforge/rapier3d-simd";
 
+export function toRapierVec3(vec3: Vec3): { x: number; y: number; z: number } {
+  return {
+    x: vec3[0],
+    y: vec3[1],
+    z: vec3[2],
+  };
+}
+
+export function toVec3(v: { x: number; y: number; z: number }): Vec3 {
+  return [v.x, v.y, v.z];
+}
+
 export const PhysicsWorld = specifyComponent({
   create() {
     return;

@@ -355,7 +355,7 @@ fn FSMain(input: GBufferFragInput) -> GBufferFragOutput {
 
   let ipos = vec2i(input.vertex_position.xy);
   if (
-    !dither256(input.pos.z * 0.1 - 0.1, ipos)
+    !dither256(input.pos.z * 0.5 - 0.5, ipos)
     // && (ipos.x + ipos.y) % 4 != 0
   ) {
     discard;
