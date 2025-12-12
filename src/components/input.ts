@@ -1,5 +1,6 @@
 import { add2, Vec2 } from "r628";
 import { specifyComponent } from "../ecs";
+import { createComponent } from "../ecs2";
 
 export const Keyboard = specifyComponent({
   async init(subsystem) {
@@ -29,6 +30,34 @@ export const Keyboard = specifyComponent({
   dependencies: [],
   globalDependencies: [],
   brand: "keyboard",
+});
+
+export const Keyboard2 = createComponent({
+  init(subsystem): {
+    isKeyHeldCaseSensitive(k: string): boolean;
+    isKeyHeld(k: string): boolean;
+  } {
+    const keysHeldCaseSensitive = new Set<string>();
+    const keysHeld = new Set<string>();
+
+    document.addEventListener("keydown", (e) => {
+      keysHeldCaseSensitive.add(e.key);
+      keysHeld.add(e.key.toLowerCase());
+    });
+    document.addEventListener("keyup", (e) => {
+      keysHeldCaseSensitive.delete(e.key);
+      keysHeld.delete(e.key.toLowerCase());
+    });
+
+    return {
+      isKeyHeldCaseSensitive(k: string) {
+        return keysHeldCaseSensitive.has(k);
+      },
+      isKeyHeld(k: string) {
+        return keysHeld.has(k);
+      },
+    };
+  },
 });
 
 export function accumulator<T, D>(

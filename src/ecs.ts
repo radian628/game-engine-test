@@ -44,6 +44,9 @@ type ComponentInstance<C extends Components> = {
 
 export type ComponentBrand = string;
 
+export type ComponentParams<C> =
+  C extends ComponentSpec<infer P, any, any, any, any, any> ? P : never;
+
 type WaitForTags = (tags: symbol[]) => Promise<void>;
 
 type RepeaterCallback<
@@ -73,7 +76,9 @@ export type ComponentSpec<
 > = {
   create: (
     params: Params,
-    global: { state: GlobalState },
+    global: {
+      state: GlobalState;
+    },
     dependencies: SimpleComponentsMap<GlobalDependencies[number]>,
     waitFor: <D extends Dependencies[number]>(d: D) => ComponentInstanceData<D>
   ) => Component;
@@ -260,12 +265,12 @@ export async function createSystem<Comps extends Components>(
     entity(ec) {
       const entity: Record<any, any> = {};
 
-      function loadComponent(k: string, v: any) {
+      const loadComponent = (k: string, v: any) => {
         if (entity[k]) return;
 
         const comp = componentMap[k]!.componentTemplate.create(
           v,
-          componentMap[k],
+          { ...componentMap[k] },
           componentMap,
           (spec) => {
             loadComponent(spec.brand, ec[spec.brand]);
@@ -276,7 +281,7 @@ export async function createSystem<Comps extends Components>(
         componentMap[k]!.instances.add({ data: comp, entity });
 
         entity[k] = comp;
-      }
+      };
 
       for (const [k, v] of Object.entries(ec) as [any, any][]) {
         loadComponent(k, v);

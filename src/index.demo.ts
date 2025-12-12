@@ -31,7 +31,7 @@ import {
   MainCanvas,
   DeferredWebgpuRenderer,
 } from "./components/renderer";
-import { createSystem, Entity } from "./ecs";
+import { createSystem, Entity, System } from "./ecs";
 import { Transform } from "./transform-component";
 import { parse } from "@loaders.gl/core";
 import {
@@ -364,7 +364,7 @@ async function main() {
     rigidBodyCollider: gltlfMeshToRapierTrimesh(
       RAPIER,
       g.meshes[4]
-    ).setFriction(0.1),
+    ).setFriction(0.6),
   });
 
   // const ground = sys.entity({
@@ -404,79 +404,85 @@ async function main() {
 
   const PLAYER_COLLIDER_GROUP = 0x0001;
 
+  const sys2: System<typeof RigidBody | typeof SampleWebgpuRendererGeometry> =
+    sys;
+
   const player = sys.entity({
     transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-    sampleWebgpuRendererGeometry: wormsegGeo,
-    rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 5, -10),
-    rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5)
-      .setFriction(0.1)
-      .setCollisionGroups(
-        PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
-      ),
-    physicalPlayerController: {},
+    // sampleWebgpuRendererGeometry: wormsegGeo,
+    // rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 5, -10),
+    // rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5)
+    //   .setFriction(0.1)
+    //   .setCollisionGroups(
+    //     PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
+    //   ),
+    physicalPlayerController: {
+      geometry: wormsegGeo,
+      sys,
+    },
     trackCamera: {},
   });
 
-  const ropeEntities: Entity<typeof RigidBody>[] = [];
-  for (let i = 0; i < 20; i++) {
-    ropeEntities.push(
-      sys.entity({
-        transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-        sampleWebgpuRendererGeometry: wormsegGeo,
-        rigidBody: RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(0, 5 + i, -10)
-          .setCcdEnabled(true),
-        rigidBodyCollider: RAPIER.ColliderDesc.ball(0.4)
-          .setFriction(i == 10 ? 1.0 : 0.1)
-          .setCollisionGroups(
-            PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
-          ),
-      })
-    );
-  }
+  // const ropeEntities: Entity<typeof RigidBody>[] = [];
+  // for (let i = 0; i < 20; i++) {
+  //   ropeEntities.push(
+  //     sys.entity({
+  //       transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+  //       sampleWebgpuRendererGeometry: wormsegGeo,
+  //       rigidBody: RAPIER.RigidBodyDesc.dynamic()
+  //         .setTranslation(0, 5 + i, -10)
+  //         .setCcdEnabled(true),
+  //       rigidBodyCollider: RAPIER.ColliderDesc.ball(0.4)
+  //         .setFriction(0.6)
+  //         .setCollisionGroups(
+  //           PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
+  //         ),
+  //     })
+  //   );
+  // }
 
-  for (let i = 0; i < 19; i++) {
-    let a = ropeEntities[i].component(RigidBody);
-    let b = ropeEntities[i + 1].component(RigidBody);
+  // for (let i = 0; i < 19; i++) {
+  //   let a = ropeEntities[i].component(RigidBody);
+  //   let b = ropeEntities[i + 1].component(RigidBody);
 
-    const params = RAPIER.JointData.spring(
-      0.1,
-      100,
-      0.2,
-      {
-        x: 0,
-        y: 0.3,
-        z: 0,
-      },
-      {
-        x: 0,
-        y: -0.3,
-        z: 0,
-      }
-    );
-    world.createImpulseJoint(params, a.body, b.body, true);
-  }
+  //   const params = RAPIER.JointData.spring(
+  //     0.1,
+  //     100,
+  //     0.2,
+  //     {
+  //       x: 0,
+  //       y: 0.3,
+  //       z: 0,
+  //     },
+  //     {
+  //       x: 0,
+  //       y: -0.3,
+  //       z: 0,
+  //     }
+  //   );
+  //   world.createImpulseJoint(params, a.body, b.body, true);
+  // }
 
-  world.createImpulseJoint(
-    RAPIER.JointData.spring(
-      0.1,
-      100,
-      0.2,
-      {
-        x: 0,
-        y: 0.3,
-        z: 0,
-      },
-      {
-        x: 0,
-        y: -0.3,
-        z: 0,
-      }
-    ),
-    player.component(RigidBody).body,
-    ropeEntities[0].component(RigidBody).body,
-    true
-  );
+  // world.createImpulseJoint(
+  //   RAPIER.JointData.spring(
+  //     0.1,
+  //     100,
+  //     0.2,
+  //     {
+  //       x: 0,
+  //       y: 0.3,
+  //       z: 0,
+  //     },
+  //     {
+  //       x: 0,
+  //       y: -0.3,
+  //       z: 0,
+  //     }
+  //   ),
+  //   player.component(RigidBody).body,
+  //   ropeEntities[0].component(RigidBody).body,
+  //   true
+  // );
 
   // for (const x of range(100)) {
   //   const testEntity = sys.entity({

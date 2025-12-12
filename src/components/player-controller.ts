@@ -6,6 +6,8 @@ import {
   mulMat4ByVec4,
   mulVec4ByMat4,
   normalize3,
+  range,
+  rodrigues,
   rotate,
   scale2,
   scale3,
@@ -16,7 +18,13 @@ import {
   xy,
   xyz,
 } from "r628";
-import { specifyComponent } from "../ecs";
+import {
+  ComponentParams,
+  Components,
+  Entity,
+  specifyComponent,
+  System,
+} from "../ecs";
 import { Keyboard, Mouse, MouseFirstPerson } from "./input";
 import {
   PhysicsWorld,
@@ -27,6 +35,7 @@ import {
 import { DeferredWebgpuRenderer } from "./renderer";
 import { Transform } from "../transform-component";
 import { inv4 } from "../matrix";
+import { SampleWebgpuRendererGeometry } from "./geometry";
 
 export function castCameraRay(
   pos: Vec2,
@@ -45,123 +54,6 @@ export function castCameraRay(
   const dir = normalize3(xyz(h));
   return dir;
 }
-
-export const PhysicalPlayerController = specifyComponent({
-  create() {
-    return {};
-  },
-  init(waitFor) {
-    return undefined;
-  },
-  dependencies: [RigidBody] as const,
-  globalDependencies: [
-    Mouse,
-    Keyboard,
-    PhysicsWorld,
-    DeferredWebgpuRenderer,
-  ] as const,
-  brand: "physicalPlayerController" as const,
-  onDestroy() {},
-  fixedUpdate({ subsystem, instances }) {
-    const kbd = subsystem(Keyboard).state;
-
-    for (const e of instances) {
-      let force: Vec3 = [0, 0, 0];
-      if (kbd.isKeyHeld("w")) {
-        force = add3(force, [0, 0, -1]);
-      }
-
-      if (kbd.isKeyHeld("s")) {
-        force = add3(force, [0, 0, 1]);
-      }
-
-      if (kbd.isKeyHeld("a")) {
-        force = add3(force, [-1, 0, 0]);
-      }
-
-      if (kbd.isKeyHeld("d")) {
-        force = add3(force, [1, 0, 0]);
-      }
-
-      e.entity.rigidBody.body.applyImpulse(
-        {
-          x: force[0],
-          y: force[1],
-          z: force[2],
-        },
-        true
-      );
-    }
-
-    const mouse = subsystem(Mouse);
-    const renderer = subsystem(DeferredWebgpuRenderer);
-
-    const mouseVector = mouse.state.pollPosition();
-
-    if (!mouse.state.isLeftPressed()) return;
-
-    const viewInv = inv4(renderer.state.viewMatrix);
-
-    const vpInv = inv4(
-      mulMat4(renderer.state.projectionMatrix, renderer.state.viewMatrix)
-    );
-
-    for (const e of instances) {
-      const { RAPIER, world } = subsystem(PhysicsWorld).state;
-
-      const bodypos = e.entity.rigidBody.body.translation();
-      const pos = xyz(mulMat4ByVec4(viewInv, [0, 0, 0, 1]));
-
-      // const dir = xyz(
-      //   mulMat4ByVec4(viewInv, [
-      //     ...normalize3([
-      //       ((mouseVector[0] / window.innerWidth) * 2.0 - 1.0) * 0.5,
-      //       ((1 - mouseVector[1] / window.innerHeight) * 2.0 - 1.0) * 0.5,
-      //       -1,
-      //     ]),
-      //     0,
-      //   ])
-      // );
-
-      // const fov = Math.tan(renderer.state.fov / 2);
-
-      // const h = mulMat4ByVec4(viewInv, [
-      //   (mouseVector[0] / window.innerWidth - 0.5) *
-      //     2 *
-      //     renderer.state.aspect *
-      //     fov,
-      //   (mouseVector[1] / window.innerHeight - 0.5) * -2 * fov,
-      //   -1,
-      //   0,
-      // ]);
-
-      // const dir = normalize3(xyz(h));
-
-      const dir = castCameraRay(
-        mouseVector,
-        [window.innerWidth, window.innerHeight],
-        viewInv,
-        renderer.state.fov,
-        renderer.state.aspect
-      );
-
-      const ray = new RAPIER.Ray(toRapierVec3(pos), toRapierVec3(dir));
-
-      const result = world.castRay(ray, 100, false);
-
-      if (result) {
-        const intersection = toVec3(ray.pointAt(result.timeOfImpact));
-        const bodypos = toVec3(e.entity.rigidBody.body.translation());
-
-        const offset = normalize3(sub3(intersection, bodypos));
-
-        e.entity.rigidBody.body.applyImpulse(toRapierVec3(offset), true);
-      }
-
-      // if (result) console.log(result?.timeOfImpact);
-    }
-  },
-});
 
 export const TrackCamera = specifyComponent({
   create() {
@@ -204,4 +96,82 @@ export const TrackCamera = specifyComponent({
     }
   },
   brand: "trackCamera" as const,
+});
+
+export const PhysicalPlayerController = specifyComponent({
+  create(
+    params: {
+      geometry: ComponentParams<typeof SampleWebgpuRendererGeometry>;
+      sys: System<
+        typeof RigidBody | typeof SampleWebgpuRendererGeometry | Components
+      >;
+    },
+    global
+  ) {
+    let segments: Entity<
+      typeof RigidBody | typeof SampleWebgpuRendererGeometry
+    >[] = [];
+
+    for (const i of range(20)) {
+      segments.push({
+        // transform:
+      });
+    }
+
+    return {
+      segments,
+    };
+  },
+  init(waitFor) {
+    return undefined;
+  },
+  dependencies: [TrackCamera] as const,
+  globalDependencies: [Mouse, Keyboard, PhysicsWorld] as const,
+  brand: "physicalPlayerController" as const,
+  onDestroy() {},
+  fixedUpdate({ subsystem, instances }) {
+    const kbd = subsystem(Keyboard).state;
+
+    for (const e of instances) {
+      const cam = e.entity.trackCamera;
+
+      let force: Vec3 = [0, 0, 0];
+      if (kbd.isKeyHeld("w")) {
+        force = add3(force, [0, 0, -1]);
+      }
+
+      if (kbd.isKeyHeld("s")) {
+        force = add3(force, [0, 0, 1]);
+      }
+
+      if (kbd.isKeyHeld("a")) {
+        force = add3(force, [-1, 0, 0]);
+      }
+
+      if (kbd.isKeyHeld("d")) {
+        force = add3(force, [1, 0, 0]);
+      }
+
+      force = rodrigues(force, [0, -1, 0], cam.angles[0]);
+
+      if (kbd.isKeyHeld(" ")) {
+        force = add3(force, [0, 1, 0]);
+      }
+
+      if (kbd.isKeyHeld("shift")) {
+        force = add3(force, [0, -1, 0]);
+      }
+
+      const forceMag = 0.26;
+
+      e.entity.rigidBody.body.applyImpulse(
+        {
+          x: force[0] * forceMag,
+          y: force[1] * forceMag,
+          z: force[2] * forceMag,
+        },
+        true
+      );
+    }
+  },
 });
