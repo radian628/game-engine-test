@@ -1,6 +1,6 @@
 import { Vec2 } from "r628";
-import { specifyComponent } from "../ecs";
 import { DeferredWebgpuRenderer, LIGHTING_PASS } from "./renderer";
+import { createComponent } from "../ecs2";
 
 export type PostprocessState = {
   device: GPUDevice;
@@ -27,28 +27,11 @@ export const PostprocessingPipeline = <Global, ResolutionDependent>(
     resDependent: Awaited<ResolutionDependent>
   ) => void | Promise<void>
 ) =>
-  specifyComponent<
-    undefined,
-    Promise<undefined>,
-    {
-      global: Awaited<Global>;
-      resolutionDependent: Awaited<ResolutionDependent>;
-    },
-    "postprocessingPipeline",
-    [],
-    [typeof DeferredWebgpuRenderer]
-  >({
-    async create(params, global, dependencies, waitFor): Promise<undefined> {
-      return undefined;
-    },
-    onDestroy() {},
-    async init(waitFor): Promise<{
-      global: Awaited<Global>;
-      resolutionDependent: Awaited<ResolutionDependent>;
-    }> {
-      const { device, canvas, onResize, ctx } = await waitFor(
-        DeferredWebgpuRenderer
-      );
+  createComponent({
+    async init({ compGlobal }) {
+      const { device, canvas, onResize, ctx } = (
+        await compGlobal(DeferredWebgpuRenderer)
+      ).state;
 
       const post = {
         global: (await initGlobal({ device, canvas, ctx })) as Awaited<Global>,
@@ -67,14 +50,12 @@ export const PostprocessingPipeline = <Global, ResolutionDependent>(
 
       return post;
     },
-    globalDependencies: [DeferredWebgpuRenderer],
-    dependencies: [],
-    brand: "postprocessingPipeline",
-    async renderUpdate({ state, scheduleTask, subsystem }) {
+    async renderUpdate({ global, scheduleTask, compGlobal }) {
+      const state = global.state;
       scheduleTask(
         async () => {
-          const { device, canvas, ctx, textures } = subsystem(
-            DeferredWebgpuRenderer
+          const { device, canvas, ctx, textures } = (
+            await compGlobal(DeferredWebgpuRenderer)
           ).state;
           await runFrame(
             {

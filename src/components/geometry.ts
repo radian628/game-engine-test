@@ -1,14 +1,16 @@
 import { makeUniformBuffer, mulMat4, Vec4 } from "r628";
 import { GBUFFER_PASS, DeferredWebgpuRenderer } from "./renderer";
-import { specifyComponent } from "../ecs";
 import { Transform } from "../transform-component";
 
 import GBufferRenderer from "./gbuffer.wgsl?raw";
 import GBufferRendererJSON from "gbuffer.wgsl";
+import { createComponent } from "../ecs2";
 
-export const SampleWebgpuRendererGeometry = specifyComponent({
-  async init(subsystem) {
-    const { device } = await subsystem(DeferredWebgpuRenderer);
+export const SampleWebgpuRendererGeometry = createComponent({
+  async init({ compGlobal }) {
+    const {
+      state: { device },
+    } = await compGlobal(DeferredWebgpuRenderer);
 
     const gbufferPipeline = device.createRenderPipeline({
       layout: "auto",
@@ -69,7 +71,7 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
 
     return { gbufferPipeline };
   },
-  create(
+  async instantiate(
     params: {
       vertexBuffer: GPUBuffer;
       normalBuffer: GPUBuffer;
@@ -78,10 +80,13 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
       size: number;
       drawColor: Vec4;
     },
-    global,
-    { deferredWebgpuRenderer }
+    { compGlobal }
   ) {
-    const { device } = deferredWebgpuRenderer.state;
+    const {
+      state: { device },
+    } = await compGlobal(DeferredWebgpuRenderer);
+
+    const g = await compGlobal(SampleWebgpuRendererGeometry);
 
     const uniformBuffer = device.createBuffer({
       label: "uniform buffer",
@@ -94,7 +99,7 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
     });
 
     const bindGroup = device.createBindGroup({
-      layout: global.state.gbufferPipeline.getBindGroupLayout(0),
+      layout: g.state.gbufferPipeline.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
@@ -114,15 +119,22 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
       drawColor: params.drawColor,
     };
   },
-  renderUpdate({ state, instances, subsystem, scheduleTask }) {
-    scheduleTask(() => {
+  async renderUpdate({
+    global: { state },
+    instances,
+    compGlobal,
+    scheduleTask,
+  }) {
+    scheduleTask(async () => {
       const {
-        device,
-        viewMatrix,
-        projectionMatrix,
-        textures,
-        gBufferRenderPass,
-      } = subsystem(DeferredWebgpuRenderer).state;
+        state: {
+          device,
+          viewMatrix,
+          projectionMatrix,
+          textures,
+          gBufferRenderPass,
+        },
+      } = await compGlobal(DeferredWebgpuRenderer);
 
       const { gbufferPipeline } = state;
 
@@ -160,28 +172,26 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
       // });
 
       for (const i of instances) {
+        const transform = i.entity.comp(Transform).state.matrix;
         const buf = makeUniformBuffer<typeof GBufferRendererJSON, 0, 0>(
           GBufferRendererJSON,
           0,
           0,
           {
-            m: i.entity.transform.matrix,
-            mvp: mulMat4(
-              projectionMatrix,
-              mulMat4(viewMatrix, i.entity.transform.matrix)
-            ),
-            draw_color: i.data.drawColor,
+            m: transform,
+            mvp: mulMat4(projectionMatrix, mulMat4(viewMatrix, transform)),
+            draw_color: i.state.drawColor,
           }
         );
 
-        device.queue.writeBuffer(i.data.uniformBuffer, 0, buf);
+        device.queue.writeBuffer(i.state.uniformBuffer, 0, buf);
 
         passEncoder.setPipeline(gbufferPipeline);
-        passEncoder.setVertexBuffer(0, i.data.vertexBuffer);
-        passEncoder.setVertexBuffer(1, i.data.normalBuffer);
-        passEncoder.setIndexBuffer(i.data.indexBuffer, i.data.indexFormat);
-        passEncoder.setBindGroup(0, i.data.bindGroup);
-        passEncoder.drawIndexed(i.data.vertexCount);
+        passEncoder.setVertexBuffer(0, i.state.vertexBuffer);
+        passEncoder.setVertexBuffer(1, i.state.normalBuffer);
+        passEncoder.setIndexBuffer(i.state.indexBuffer, i.state.indexFormat);
+        passEncoder.setBindGroup(0, i.state.bindGroup);
+        passEncoder.drawIndexed(i.state.vertexCount);
       }
       // passEncoder.end();
 
@@ -190,8 +200,5 @@ export const SampleWebgpuRendererGeometry = specifyComponent({
       return Promise.resolve();
     }, [GBUFFER_PASS]);
   },
-  onDestroy() {},
-  dependencies: [Transform] as const,
-  globalDependencies: [DeferredWebgpuRenderer] as const,
-  brand: "sampleWebgpuRendererGeometry" as const,
+  deps: [Transform] as const,
 });

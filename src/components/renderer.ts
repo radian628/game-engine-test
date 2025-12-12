@@ -11,7 +11,6 @@ import {
   Vec2,
   Vec3,
 } from "r628";
-import { specifyComponent } from "../ecs";
 import {
   createDofDownsampleShaderPipeline,
   createDofPositionToDepth,
@@ -30,12 +29,9 @@ import {
   maxFilterNear,
 } from "../shaders/dof-post-effects";
 import { inv4 } from "../matrix";
+import { createComponent } from "../ecs2";
 
-export const MainCanvas = specifyComponent({
-  create() {
-    return undefined;
-  },
-  onDestroy() {},
+export const MainCanvas = createComponent({
   async init() {
     const canvas = document.createElement("canvas");
     canvas.style = `
@@ -52,9 +48,6 @@ height: 100vh;
       canvas,
     };
   },
-  brand: "mainCanvas",
-  dependencies: [],
-  globalDependencies: [],
 });
 
 export const GBUFFER_PASS = Symbol("GBuffer Pass");
@@ -242,22 +235,16 @@ function intervalInclusive(a: number, b: number): number[] {
   return range(b - a + 1).map((i) => i - a);
 }
 
-export const DeferredWebgpuRenderer = specifyComponent({
-  create() {
-    return undefined;
-  },
-  onDestroy() {},
-  async init(waitFor) {
-    const canvas = (await waitFor(MainCanvas)).canvas;
+export const DeferredWebgpuRenderer = createComponent({
+  async init({ compGlobal }) {
+    const canvas = (await compGlobal(MainCanvas)).state.canvas;
 
     const ctx = canvas.getContext("webgpu");
 
     const adapter = await navigator.gpu.requestAdapter()!;
     const device = await adapter.requestDevice({
       requiredFeatures: ["float32-filterable"],
-      requiredLimits: {
-        // maxColorAttachmentBytesPerSample: 40,
-      },
+      requiredLimits: {},
     });
 
     const format = navigator.gpu.getPreferredCanvasFormat();
@@ -310,7 +297,8 @@ export const DeferredWebgpuRenderer = specifyComponent({
     return ret;
   },
 
-  renderUpdate({ state, scheduleTask }) {
+  async renderUpdate({ global, scheduleTask }) {
+    const state = global.state;
     const { device, textures, fullscreenQuad } = state;
 
     state.projectionMatrix = perspectiveWebgpu(
@@ -362,7 +350,4 @@ export const DeferredWebgpuRenderer = specifyComponent({
       [GBUFFER_PASS]
     );
   },
-  brand: "deferredWebgpuRenderer" as const,
-  dependencies: [] as const,
-  globalDependencies: [MainCanvas] as const,
 });

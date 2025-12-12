@@ -1,2 +1,2 @@
-import{k as r,o as m,q as e,t}from"./chunk-6PVIZZZS.js";import"./chunk-RFBBAUMM.js";var o=m(),s=o.entity(e(void 0),t(r([1,0,0],Math.PI*.25))),a=s.comp(t);console.log(a);var i=o.compGlobal(e).state;function n(){console.log(i.isKeyHeld("a")),o.renderUpdate(),o.fixedUpdate(),requestAnimationFrame(n)}n();
+import{j as n,m as r,o as s,q as a}from"./chunk-DUZSYN25.js";import"./chunk-RFBBAUMM.js";var o=r();async function m(){let i=(await o.entity(a(n([1,0,0],Math.PI*.25)))).comp(a);console.log(i);let t=await o.compGlobal(s);console.log("kb",t,t.state);async function e(){console.log(t.state.isKeyHeld("a")),await o.renderUpdate(),await o.fixedUpdate(),requestAnimationFrame(e)}e()}m();
 //# sourceMappingURL=ecs2.demo.js.map

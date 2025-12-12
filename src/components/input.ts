@@ -1,42 +1,8 @@
 import { add2, Vec2 } from "r628";
-import { specifyComponent } from "../ecs";
 import { createComponent } from "../ecs2";
 
-export const Keyboard = specifyComponent({
-  async init(subsystem) {
-    const keysHeldCaseSensitive = new Set<string>();
-    const keysHeld = new Set<string>();
-
-    document.addEventListener("keydown", (e) => {
-      keysHeldCaseSensitive.add(e.key);
-      keysHeld.add(e.key.toLowerCase());
-    });
-    document.addEventListener("keyup", (e) => {
-      keysHeldCaseSensitive.delete(e.key);
-      keysHeld.delete(e.key.toLowerCase());
-    });
-
-    return {
-      isKeyHeldCaseSensitive(k: string) {
-        return keysHeldCaseSensitive.has(k);
-      },
-      isKeyHeld(k: string) {
-        return keysHeld.has(k);
-      },
-    };
-  },
-  onDestroy() {},
-  create() {},
-  dependencies: [],
-  globalDependencies: [],
-  brand: "keyboard",
-});
-
-export const Keyboard2 = createComponent({
-  init(subsystem): {
-    isKeyHeldCaseSensitive(k: string): boolean;
-    isKeyHeld(k: string): boolean;
-  } {
+export const Keyboard = createComponent({
+  async init() {
     const keysHeldCaseSensitive = new Set<string>();
     const keysHeld = new Set<string>();
 
@@ -78,8 +44,8 @@ export function accumulator<T, D>(
   };
 }
 
-export const Mouse = specifyComponent({
-  async init(subsystem) {
+export const Mouse = createComponent({
+  async init() {
     let movement: Vec2 = [0, 0];
 
     let mouseButtons = new Set<number>();
@@ -131,15 +97,10 @@ export const Mouse = specifyComponent({
       },
     };
   },
-  onDestroy() {},
-  create() {},
-  dependencies: [],
-  globalDependencies: [],
-  brand: "mouse",
 });
 
-export const MouseFirstPerson = specifyComponent({
-  async init(subsystem) {
+export const MouseFirstPerson = createComponent({
+  async init() {
     let movement: Vec2 = [0, 0];
 
     document.addEventListener("mousemove", (e) => {
@@ -158,9 +119,4 @@ export const MouseFirstPerson = specifyComponent({
       },
     };
   },
-  onDestroy() {},
-  create() {},
-  dependencies: [],
-  globalDependencies: [],
-  brand: "mouesFirstPerson",
 });

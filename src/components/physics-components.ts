@@ -1,7 +1,7 @@
 import { mulMat4, rotate, translate, Vec3 } from "r628";
-import { Components, specifyComponent } from "../ecs";
 import { Transform } from "../transform-component";
 import type RAPIER from "@dimforge/rapier3d-simd";
+import { createComponent } from "../ecs2";
 
 export function toRapierVec3(vec3: Vec3): { x: number; y: number; z: number } {
   return {
@@ -15,14 +15,8 @@ export function toVec3(v: { x: number; y: number; z: number }): Vec3 {
   return [v.x, v.y, v.z];
 }
 
-export const PhysicsWorld = specifyComponent({
-  create() {
-    return;
-  },
-  brand: "physicsWorld" as const,
-  dependencies: [] as const,
-  globalDependencies: [] as const,
-  init: async () => {
+export const PhysicsWorld = createComponent({
+  async init() {
     const RAPIER = (await import("@dimforge/rapier3d-simd")).default;
     console.log(RAPIER, RAPIER.World);
     const world = new RAPIER.World({
@@ -35,12 +29,8 @@ export const PhysicsWorld = specifyComponent({
       RAPIER,
     };
   },
-  fixedUpdate({ state, instances }) {
-    // state.world.integrationParameters.dt = 0.004;
-    state.world.step();
-  },
-  onDestroy(c) {
-    c;
+  async fixedUpdate({ global }) {
+    global.state.world.step();
   },
 });
 
@@ -61,24 +51,26 @@ function quatToAngleAxis(quat: {
   };
 }
 
-export const RigidBody = specifyComponent({
-  brand: "rigidBody" as const,
-  dependencies: [Transform] as const,
-  globalDependencies: [PhysicsWorld] as const,
-  create(params: RAPIER.RigidBodyDesc, _, { physicsWorld }) {
-    return { body: physicsWorld.state.world.createRigidBody(params) };
+export const RigidBody = createComponent({
+  deps: [Transform] as const,
+  async instantiate(params: RAPIER.RigidBodyDesc, { compGlobal }) {
+    return {
+      body: (await compGlobal(PhysicsWorld)).state.world.createRigidBody(
+        params
+      ),
+    };
   },
-  onDestroy(c, { physicsWorld }) {
-    physicsWorld.state.world.removeRigidBody(c.body);
+  async destroy(c, { compGlobal }) {
+    const world = (await compGlobal(PhysicsWorld)).state.world;
+    world.removeRigidBody(c.state.body);
   },
-  init: () => undefined,
-  fixedUpdate({ state, instances }) {
+  async fixedUpdate({ instances }) {
     for (const inst of instances) {
-      const translation = inst.data.body.translation();
-      const rotationQuat = inst.data.body.rotation();
+      const translation = inst.state.body.translation();
+      const rotationQuat = inst.state.body.rotation();
       const rotation = quatToAngleAxis(rotationQuat);
 
-      inst.entity.transform.matrix = mulMat4(
+      inst.entity.comp(Transform).state.matrix = mulMat4(
         translate([translation.x, translation.y, translation.z]),
         rotate(rotation.axis, rotation.angle)
       );
@@ -86,23 +78,23 @@ export const RigidBody = specifyComponent({
   },
 });
 
-export const RigidBodyCollider = specifyComponent({
-  brand: "rigidBodyCollider" as const,
-  dependencies: [RigidBody] as const,
-  globalDependencies: [PhysicsWorld] as const,
-  create(params: RAPIER.ColliderDesc, _, { physicsWorld }, waitFor) {
-    const rigidBody = waitFor(RigidBody);
-    const collider = physicsWorld.state.world.createCollider(
+export const RigidBodyCollider = createComponent({
+  async instantiate(params: RAPIER.ColliderDesc, { comp, compGlobal }) {
+    const rigidBody = await comp(RigidBody);
+    const world = await compGlobal(PhysicsWorld);
+    const collider = world.state.world.createCollider(
       params,
-      rigidBody.body
+      rigidBody.state.body
     );
 
     return {
       collider,
     };
   },
-  onDestroy(c, { physicsWorld }) {
-    physicsWorld.state.world.removeCollider(c.collider, false);
+  async destroy(c, { compGlobal }) {
+    (await compGlobal(PhysicsWorld)).state.world.removeCollider(
+      c.state.collider,
+      false
+    );
   },
-  init: () => undefined,
 });

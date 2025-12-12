@@ -16,15 +16,15 @@ import { uploadIndexedMeshToGPU, uvSphere } from "../mesh-generation";
 
 import LightingRenderer from "./lighting.wgsl?raw";
 import LightingRendererJSON from "lighting.wgsl";
-import { specifyComponent } from "../ecs";
 import { Transform } from "../transform-component";
 import { inv4 } from "../matrix";
+import { createComponent } from "../ecs2";
 
-export const PointLightSource = specifyComponent({
-  async init(subsystem) {
-    const { device, canvasFormat, onResize } = await subsystem(
-      DeferredWebgpuRenderer
-    );
+export const PointLightSource = createComponent({
+  async init({ compGlobal }) {
+    const {
+      state: { device, canvasFormat, onResize },
+    } = await compGlobal(DeferredWebgpuRenderer);
 
     const lightingBindGroupLayout = device.createBindGroupLayout({
       entries: [
@@ -125,7 +125,7 @@ export const PointLightSource = specifyComponent({
     };
 
     await onResize(async () => {
-      const gbuffer = (await subsystem(DeferredWebgpuRenderer)).textures
+      const gbuffer = (await compGlobal(DeferredWebgpuRenderer)).state.textures
         .gbuffer;
       state.lightingBindGroup = device.createBindGroup({
         layout: lightingBindGroupLayout,
@@ -156,17 +156,19 @@ export const PointLightSource = specifyComponent({
     return state;
   },
 
-  create(
+  async instantiate(
     params: {
       color: Vec3;
       linear: number;
       quadratic: number;
       constant: number;
     },
-    global,
-    { deferredWebgpuRenderer }
+    { compGlobal }
   ) {
-    const { device } = deferredWebgpuRenderer.state;
+    const g = await compGlobal(PointLightSource);
+    const {
+      state: { device },
+    } = await compGlobal(DeferredWebgpuRenderer);
 
     const uniformBuffer = device.createBuffer({
       label: "uniform buffer",
@@ -185,7 +187,7 @@ export const PointLightSource = specifyComponent({
           resource: uniformBuffer,
         },
       ],
-      layout: global.state.lightingUniformBindGroupLayout,
+      layout: g.state.lightingUniformBindGroupLayout,
     });
 
     return {
@@ -198,11 +200,17 @@ export const PointLightSource = specifyComponent({
     };
   },
 
-  renderUpdate({ state, instances, subsystem, scheduleTask }) {
+  async renderUpdate({
+    global: { state },
+    instances,
+    compGlobal,
+    scheduleTask,
+  }) {
     scheduleTask(
-      () => {
-        const { projectionMatrix, viewMatrix, device, textures, ctx } =
-          subsystem(DeferredWebgpuRenderer).state;
+      async () => {
+        const {
+          state: { projectionMatrix, viewMatrix, device, textures, ctx },
+        } = await compGlobal(DeferredWebgpuRenderer);
         const commandEncoder = device.createCommandEncoder();
 
         const passEncoder = commandEncoder.beginRenderPass({
@@ -224,16 +232,19 @@ export const PointLightSource = specifyComponent({
 
         for (const i of instances) {
           const rad =
-            (-i.data.linear +
+            (-i.state.linear +
               Math.sqrt(
-                i.data.linear ** 2 -
+                i.state.linear ** 2 -
                   4 *
-                    i.data.quadratic *
-                    (i.data.constant - Math.max(...i.data.color) / cutoff)
+                    i.state.quadratic *
+                    (i.state.constant - Math.max(...i.state.color) / cutoff)
               )) /
-            (2 * i.data.quadratic);
+            (2 * i.state.quadratic);
 
-          const m = mulMat4(i.entity.transform.matrix, scale([rad, rad, rad]));
+          const m = mulMat4(
+            i.entity.comp(Transform).state.matrix,
+            scale([rad, rad, rad])
+          );
 
           const vp = mulMat4(projectionMatrix, viewMatrix);
 
@@ -253,16 +264,16 @@ export const PointLightSource = specifyComponent({
               inv_vp: inv4(vp),
               mvp,
               m,
-              light_color: i.data.color,
+              light_color: i.state.color,
               light_pos: lightPos,
-              quadratic: i.data.quadratic,
-              linear: i.data.linear,
-              constant: i.data.constant,
+              quadratic: i.state.quadratic,
+              linear: i.state.linear,
+              constant: i.state.constant,
               cutoff_radius: rad,
             }
           );
-          device.queue.writeBuffer(i.data.uniformBuffer, 0, buf);
-          passEncoder.setBindGroup(1, i.data.uniformBindGroup);
+          device.queue.writeBuffer(i.state.uniformBuffer, 0, buf);
+          passEncoder.setBindGroup(1, i.state.uniformBindGroup);
 
           passEncoder.setPipeline(state.lightingPipeline);
           passEncoder.setVertexBuffer(0, state.pointLightGeometry.vertices);
@@ -284,8 +295,5 @@ export const PointLightSource = specifyComponent({
       [GBUFFER_SUBMIT]
     );
   },
-  dependencies: [Transform] as const,
-  globalDependencies: [DeferredWebgpuRenderer] as const,
-  brand: "pointLightSource",
-  onDestroy() {},
+  deps: [Transform] as const,
 });

@@ -1,29 +1,32 @@
 import { rotate } from "r628";
-import { Keyboard2 } from "./components/input";
+import { Keyboard } from "./components/input";
 import { createSystem } from "./ecs2";
-import { Transform2 } from "./transform-component";
+import { Transform } from "./transform-component";
 
 const sys = createSystem();
 
-const e = sys.entity(
-  Keyboard2(undefined),
-  Transform2(rotate([1, 0, 0], Math.PI * 0.25))
-);
+async function main() {
+  const e = await sys.entity(Transform(rotate([1, 0, 0], Math.PI * 0.25)));
 
-const m = e.comp(Transform2);
+  const m = e.comp(Transform);
 
-console.log(m);
+  console.log(m);
 
-const kb = sys.compGlobal(Keyboard2).state;
+  const kb = await sys.compGlobal(Keyboard);
 
-function loop() {
-  console.log(kb.isKeyHeld("a"));
+  console.log("kb", kb, kb.state);
 
-  sys.renderUpdate();
-  sys.fixedUpdate();
+  async function loop() {
+    console.log(kb.state.isKeyHeld("a"));
 
-  requestAnimationFrame(loop);
+    await sys.renderUpdate();
+    await sys.fixedUpdate();
+
+    requestAnimationFrame(loop);
+  }
+  loop();
 }
-loop();
+
+main();
 
 //  type SDKLFJ = any extends number ? true : false;
