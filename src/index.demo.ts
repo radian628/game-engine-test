@@ -23,6 +23,7 @@ import {
   translate,
   Vec2,
   Vec3,
+  Vec4,
   xyz,
 } from "r628";
 import {
@@ -56,6 +57,10 @@ import {
   PhysicalPlayerController,
   TrackCamera,
 } from "./components/player-controller";
+import {
+  SphericalImpulseJoint,
+  UnitImpulseJoint,
+} from "@dimforge/rapier3d-simd";
 
 type MeshBuffers = {
   attributes: Record<string, GPUBuffer>;
@@ -237,6 +242,7 @@ async function main() {
   const mesh = gltfMeshToWebGPUBuffers(device, g.meshes[0]);
   const bg = gltfMeshToWebGPUBuffers(device, g.meshes[2]);
   const tunnel = gltfMeshToWebGPUBuffers(device, g.meshes[4]);
+  const wormseg = gltfMeshToWebGPUBuffers(device, g.meshes[5]);
 
   let entities: Entity<
     | typeof Transform
@@ -358,7 +364,7 @@ async function main() {
     rigidBodyCollider: gltlfMeshToRapierTrimesh(
       RAPIER,
       g.meshes[4]
-    ).setFriction(0.9),
+    ).setFriction(0.1),
   });
 
   // const ground = sys.entity({
@@ -387,18 +393,20 @@ async function main() {
   //   }
   // );
 
+  const wormsegGeo = {
+    vertexBuffer: wormseg[0].attributes.POSITION,
+    normalBuffer: wormseg[0].attributes.NORMAL,
+    size: wormseg[0].count,
+    indexBuffer: wormseg[0].indices!.buffer,
+    indexFormat: "uint16" as const,
+    drawColor: [1.0, 0.5, 1.0, 1.0] as Vec4,
+  };
+
   const PLAYER_COLLIDER_GROUP = 0x0001;
 
   const player = sys.entity({
     transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-    sampleWebgpuRendererGeometry: {
-      vertexBuffer: mesh[0].attributes.POSITION,
-      normalBuffer: mesh[0].attributes.NORMAL,
-      size: mesh[0].count,
-      indexBuffer: mesh[0].indices!.buffer,
-      indexFormat: "uint16",
-      drawColor: [1.0, 0.5, 0.25, 1.0],
-    },
+    sampleWebgpuRendererGeometry: wormsegGeo,
     rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 5, -10),
     rigidBodyCollider: RAPIER.ColliderDesc.ball(0.5)
       .setFriction(0.1)
@@ -410,21 +418,16 @@ async function main() {
   });
 
   const ropeEntities: Entity<typeof RigidBody>[] = [];
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 20; i++) {
     ropeEntities.push(
       sys.entity({
         transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-        sampleWebgpuRendererGeometry: {
-          vertexBuffer: mesh[0].attributes.POSITION,
-          normalBuffer: mesh[0].attributes.NORMAL,
-          size: mesh[0].count,
-          indexBuffer: mesh[0].indices!.buffer,
-          indexFormat: "uint16",
-          drawColor: [1.0, 0.5, 0.25, 1.0],
-        },
-        rigidBody: RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 5 + i, -10),
+        sampleWebgpuRendererGeometry: wormsegGeo,
+        rigidBody: RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(0, 5 + i, -10)
+          .setCcdEnabled(true),
         rigidBodyCollider: RAPIER.ColliderDesc.ball(0.4)
-          .setFriction(0.1)
+          .setFriction(i == 10 ? 1.0 : 0.1)
           .setCollisionGroups(
             PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
           ),
@@ -432,35 +435,41 @@ async function main() {
     );
   }
 
-  for (let i = 0; i < 49; i++) {
+  for (let i = 0; i < 19; i++) {
     let a = ropeEntities[i].component(RigidBody);
     let b = ropeEntities[i + 1].component(RigidBody);
 
-    const params = RAPIER.JointData.spherical(
+    const params = RAPIER.JointData.spring(
+      0.1,
+      100,
+      0.2,
       {
         x: 0,
-        y: 0,
+        y: 0.3,
         z: 0,
       },
       {
         x: 0,
-        y: -1,
+        y: -0.3,
         z: 0,
       }
     );
-    const joint = world.createImpulseJoint(params, a.body, b.body, true);
+    world.createImpulseJoint(params, a.body, b.body, true);
   }
 
   world.createImpulseJoint(
-    RAPIER.JointData.spherical(
+    RAPIER.JointData.spring(
+      0.1,
+      100,
+      0.2,
       {
         x: 0,
-        y: 0,
+        y: 0.3,
         z: 0,
       },
       {
         x: 0,
-        y: -1,
+        y: -0.3,
         z: 0,
       }
     ),

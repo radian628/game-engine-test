@@ -203,6 +203,7 @@ export const ParticleSystem = specifyComponent({
         projectionMatrix,
         textures,
         gBufferRenderPass,
+        aspect,
       } = subsystem(DeferredWebgpuRenderer).state;
 
       const { particlesPipeline } = state;
@@ -215,6 +216,7 @@ export const ParticleSystem = specifyComponent({
           0,
           0,
           {
+            scale: [0.03 * aspect, 0.03],
             mvp: mulMat4(
               projectionMatrix,
               mulMat4(viewMatrix, i.entity.transform.matrix)

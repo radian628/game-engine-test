@@ -7,7 +7,7 @@ declare module "particles.wgsl" {
         "type": {
           "name": "Params",
           "attributes": null,
-          "size": 80,
+          "size": 96,
           "members": [
             {
               "name": "mvp",
@@ -30,25 +30,36 @@ declare module "particles.wgsl" {
               "attributes": null,
               "offset": 64,
               "size": 16
+            },
+            {
+              "name": "scale",
+              "type": {
+                "name": "vec2f",
+                "attributes": null,
+                "size": 8
+              },
+              "attributes": null,
+              "offset": 80,
+              "size": 8
             }
           ],
           "align": 16,
           "startLine": 20,
-          "endLine": 23,
+          "endLine": 24,
           "inUse": true
         },
         "group": 0,
         "binding": 0,
         "attributes": [
           {
-            "id": 69985,
-            "line": 25,
+            "id": 13856,
+            "line": 26,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 69986,
-            "line": 25,
+            "id": 13857,
+            "line": 26,
             "name": "binding",
             "value": "0"
           }

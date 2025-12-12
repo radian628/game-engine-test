@@ -20,6 +20,7 @@ struct ParticlesFragOutput {
 struct Params {
   mvp: mat4x4f,
   draw_color: vec4f,
+  scale: vec2f,
 }
 
 @group(0) @binding(0) var<uniform> params : Params;
@@ -40,7 +41,7 @@ fn VSMain(input: ParticlesVertInput) -> ParticlesFragInput {
     vec2( 1.0,  1.0),
     vec2(-1.0, -1.0),
     vec2(-1.0,  1.0),
-  )[input.vindex] * 0.03, 1.0, 1.0) + center;
+  )[input.vindex] * params.scale, 1.0, 1.0) + center;
 
   frag.vertex_position = frag.pos;
 
