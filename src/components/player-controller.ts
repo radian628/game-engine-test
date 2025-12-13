@@ -267,7 +267,10 @@ export const PhysicalPlayerController = createComponent({
       let nonFixedSegment = e.state.fixFront ? last : first;
       const t = nonFixedSegment.comp(Transform).state.matrix;
 
-      const fwd = scale3(xyz(mulMat4ByVec4(t, [0, 1, 0, 0])), 0.17);
+      const fwdnorm = xyz(mulMat4ByVec4(t, [0, 1, 0, 0]));
+      fwdnorm[1] = 0;
+
+      const fwd = scale3(normalize3(fwdnorm), 0.17);
 
       function turn(axis: Vec3, angle: number) {
         nonFixedSegment

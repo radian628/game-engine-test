@@ -8,13 +8,13 @@ declare module "lighting.wgsl" {
           "name": "sampler",
           "attributes": [
             {
-              "id": 35744,
+              "id": 36794,
               "line": 14,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 35745,
+              "id": 36795,
               "line": 14,
               "name": "binding",
               "value": "0"
@@ -28,13 +28,13 @@ declare module "lighting.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 35744,
+            "id": 36794,
             "line": 14,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 35745,
+            "id": 36795,
             "line": 14,
             "name": "binding",
             "value": "0"
@@ -49,13 +49,13 @@ declare module "lighting.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 35748,
+              "id": 36798,
               "line": 15,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 35749,
+              "id": 36799,
               "line": 15,
               "name": "binding",
               "value": "1"
@@ -73,13 +73,13 @@ declare module "lighting.wgsl" {
         "binding": 1,
         "attributes": [
           {
-            "id": 35748,
+            "id": 36798,
             "line": 15,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 35749,
+            "id": 36799,
             "line": 15,
             "name": "binding",
             "value": "1"
@@ -94,13 +94,13 @@ declare module "lighting.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 35753,
+              "id": 36803,
               "line": 16,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 35754,
+              "id": 36804,
               "line": 16,
               "name": "binding",
               "value": "2"
@@ -118,13 +118,13 @@ declare module "lighting.wgsl" {
         "binding": 2,
         "attributes": [
           {
-            "id": 35753,
+            "id": 36803,
             "line": 16,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 35754,
+            "id": 36804,
             "line": 16,
             "name": "binding",
             "value": "2"
@@ -139,13 +139,13 @@ declare module "lighting.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 35758,
+              "id": 36808,
               "line": 17,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 35759,
+              "id": 36809,
               "line": 17,
               "name": "binding",
               "value": "3"
@@ -163,13 +163,13 @@ declare module "lighting.wgsl" {
         "binding": 3,
         "attributes": [
           {
-            "id": 35758,
+            "id": 36808,
             "line": 17,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 35759,
+            "id": 36809,
             "line": 17,
             "name": "binding",
             "value": "3"
@@ -296,13 +296,13 @@ declare module "lighting.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 35782,
+            "id": 36832,
             "line": 31,
             "name": "group",
             "value": "1"
           },
           {
-            "id": 35783,
+            "id": 36833,
             "line": 31,
             "name": "binding",
             "value": "0"
