@@ -436,7 +436,7 @@ async function main() {
     }),
     RigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, -10, -10)),
     RigidBodyCollider(
-      gltlfMeshToRapierTrimesh(RAPIER, g.meshes[4]).setFriction(0.6)
+      gltlfMeshToRapierTrimesh(RAPIER, g.meshes[4]).setFriction(0)
     )
   );
 

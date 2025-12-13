@@ -128,11 +128,11 @@ export const PhysicalPlayerController = createComponent({
       segments.push(
         await sys.entity(
           Transform(translate([0, 0, 0])),
-          RigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, i, 0)),
+          RigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, i - 9, 0)),
           SampleWebgpuRendererGeometry(params.geometry),
           RigidBodyCollider(
             RAPIER.ColliderDesc.ball(0.4)
-              .setFriction(0.8)
+              .setFriction(1)
               .setCollisionGroups(
                 PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
               )
@@ -178,7 +178,7 @@ export const PhysicalPlayerController = createComponent({
     for (const i of range(SPRING_ROWS)) replaceJoints(i, 0.3);
 
     return {
-      fixFront: false,
+      fixFront: true,
       keyTapped: tapper(),
       segments,
       springs,
