@@ -6,13 +6,21 @@ export const Keyboard = createComponent({
     const keysHeldCaseSensitive = new Set<string>();
     const keysHeld = new Set<string>();
 
+    const keyTappers: Set<Set<string>> = new Set();
+
     document.addEventListener("keydown", (e) => {
       keysHeldCaseSensitive.add(e.key);
       keysHeld.add(e.key.toLowerCase());
+      for (const kt of keyTappers) {
+        kt.add(e.key.toLowerCase());
+      }
     });
     document.addEventListener("keyup", (e) => {
       keysHeldCaseSensitive.delete(e.key);
       keysHeld.delete(e.key.toLowerCase());
+      for (const kt of keyTappers) {
+        kt.delete(e.key.toLowerCase());
+      }
     });
 
     return {
@@ -21,6 +29,23 @@ export const Keyboard = createComponent({
       },
       isKeyHeld(k: string) {
         return keysHeld.has(k);
+      },
+      tapper() {
+        const keyTapped = new Set<string>();
+        keyTappers.add(keyTapped);
+        const isTapped = (k: string) => {
+          const isTapped = keyTapped.has(k);
+          if (isTapped) {
+            keyTapped.delete(k);
+          }
+          return isTapped;
+        };
+
+        isTapped.destroy = () => {
+          keyTappers.delete(keyTapped);
+        };
+
+        return isTapped;
       },
     };
   },

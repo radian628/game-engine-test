@@ -33,7 +33,11 @@ import { Transform } from "../transform-component";
 import { inv4 } from "../matrix";
 import { SampleWebgpuRendererGeometry } from "./geometry";
 import { createComponent, CsObj, Entity } from "../ecs2";
-import { ImpulseJoint, SpringImpulseJoint } from "@dimforge/rapier3d-simd";
+import {
+  ImpulseJoint,
+  RigidBodyType,
+  SpringImpulseJoint,
+} from "@dimforge/rapier3d-simd";
 
 export function castCameraRay(
   pos: Vec2,
@@ -96,6 +100,7 @@ export const TrackCamera = createComponent({
 const PLAYER_COLLIDER_GROUP = 0x0001;
 
 const PLAYER_SEGCOUNT = 20;
+const SPRING_ROWS = 4;
 
 export const PhysicalPlayerController = createComponent({
   async instantiate(
@@ -105,9 +110,13 @@ export const PhysicalPlayerController = createComponent({
     { sys, compGlobal }
   ) {
     const { world, RAPIER } = (await compGlobal(PhysicsWorld)).state;
+    const { tapper } = (await compGlobal(Keyboard)).state;
 
     let segments: Entity<
-      typeof RigidBody | typeof SampleWebgpuRendererGeometry | typeof Transform
+      | typeof RigidBody
+      | typeof RigidBodyCollider
+      | typeof SampleWebgpuRendererGeometry
+      | typeof Transform
     >[] = [];
 
     let springs: {
@@ -123,7 +132,7 @@ export const PhysicalPlayerController = createComponent({
           SampleWebgpuRendererGeometry(params.geometry),
           RigidBodyCollider(
             RAPIER.ColliderDesc.ball(0.4)
-              .setFriction(0.6)
+              .setFriction(1)
               .setCollisionGroups(
                 PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
               )
@@ -133,9 +142,9 @@ export const PhysicalPlayerController = createComponent({
     }
 
     function replaceJoints(idx: number, length: number) {
-      const angle = rescale(idx, 0, 4, 0, Math.PI * 2);
-      const xOffset = Math.cos(angle) * 0.3;
-      const zOffset = Math.sin(angle) * 0.3;
+      const angle = rescale(idx, 0, SPRING_ROWS, 0, Math.PI * 2);
+      const xOffset = Math.cos(angle) * 0.5;
+      const zOffset = Math.sin(angle) * 0.5;
 
       const oldSprings = springs[idx];
       if (oldSprings) {
@@ -151,8 +160,8 @@ export const PhysicalPlayerController = createComponent({
 
         const spring = RAPIER.JointData.spring(
           0.1,
-          100,
-          0.2,
+          400,
+          1,
           {
             x: xOffset,
             y: length,
@@ -166,12 +175,20 @@ export const PhysicalPlayerController = createComponent({
       springs[idx] = { list: springsInner, restLength: length };
     }
 
-    for (const i of range(4)) replaceJoints(i, 0.3);
+    for (const i of range(SPRING_ROWS)) replaceJoints(i, 0.3);
 
     return {
+      fixFront: false,
+      keyTapped: tapper(),
       segments,
       springs,
       replaceJoints,
+      replaceFriction(f: (x: number) => number) {
+        for (const i of range(segments.length)) {
+          const x = i / (segments.length - 1);
+          segments[i].comp(RigidBodyCollider).state.collider.setFriction(f(x));
+        }
+      },
     };
   },
   deps: [TrackCamera] as const,
@@ -189,26 +206,54 @@ export const PhysicalPlayerController = createComponent({
     for (const e of instances) {
       // const cam = e.entity.comp(TrackCamera).state;
 
-      if (kbd.isKeyHeld("w")) {
-        e.state.replaceJoints(0, 0.1);
+      // if (kbd.isKeyHeld("w")) {
+      //   e.state.replaceJoints(0, 0.1);
+      // } else {
+      //   e.state.replaceJoints(0, 0.3);
+      // }
+      // if (kbd.isKeyHeld("d")) {
+      //   e.state.replaceJoints(1, 0.1);
+      // } else {
+      //   e.state.replaceJoints(1, 0.3);
+      // }
+      // if (kbd.isKeyHeld("s")) {
+      //   e.state.replaceJoints(2, 0.1);
+      // } else {
+      //   e.state.replaceJoints(2, 0.3);
+      // }
+      if (kbd.isKeyHeld(" ")) {
+        for (const i of range(SPRING_ROWS)) e.state.replaceJoints(i, 0.2);
       } else {
-        e.state.replaceJoints(0, 0.3);
+        for (const i of range(SPRING_ROWS)) e.state.replaceJoints(i, 0.3);
       }
-      if (kbd.isKeyHeld("d")) {
-        e.state.replaceJoints(1, 0.1);
-      } else {
-        e.state.replaceJoints(1, 0.3);
+
+      if (e.state.keyTapped("a")) {
+        e.state.fixFront = !e.state.fixFront;
       }
-      if (kbd.isKeyHeld("s")) {
-        e.state.replaceJoints(2, 0.1);
-      } else {
-        e.state.replaceJoints(2, 0.3);
+
+      const first = e.state.segments[0];
+      const last = e.state.segments.at(-1)!;
+
+      function setSegmentDynamic(dynamic: boolean, segment: typeof first) {
+        segment
+          .comp(RigidBody)
+          .state.body.setBodyType(
+            dynamic ? RigidBodyType.Dynamic : RigidBodyType.Fixed,
+            true
+          );
+        segment.comp(SampleWebgpuRendererGeometry).state.drawColor = dynamic
+          ? [1.0, 0.5, 1.0, 1.0]
+          : [1.0, 0.0, 0.0, 1.0];
       }
-      if (kbd.isKeyHeld("a")) {
-        e.state.replaceJoints(3, 0.1);
-      } else {
-        e.state.replaceJoints(3, 0.3);
-      }
+
+      // e.state.replaceFriction((x) => (x > 0.5 ? 20 : 0));
+      // console.log("back");
+      // e.state.segments[0]
+      //   .comp(RigidBody)
+      //   .state.body.applyImpulse(toRapierVec3([0, -4, 0]), true);
+
+      setSegmentDynamic(!e.state.fixFront, first);
+      setSegmentDynamic(e.state.fixFront, last);
 
       // let force: Vec3 = [0, 0, 0];
       // if (kbd.isKeyHeld("w")) {
