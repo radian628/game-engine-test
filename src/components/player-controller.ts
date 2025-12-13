@@ -100,7 +100,7 @@ export const TrackCamera = createComponent({
 const PLAYER_COLLIDER_GROUP = 0x0001;
 
 const PLAYER_SEGCOUNT = 20;
-const SPRING_ROWS = 4;
+const SPRING_ROWS = 3;
 
 export const PhysicalPlayerController = createComponent({
   async instantiate(
@@ -132,7 +132,7 @@ export const PhysicalPlayerController = createComponent({
           SampleWebgpuRendererGeometry(params.geometry),
           RigidBodyCollider(
             RAPIER.ColliderDesc.ball(0.4)
-              .setFriction(1)
+              .setFriction(0.8)
               .setCollisionGroups(
                 PLAYER_COLLIDER_GROUP | (~PLAYER_COLLIDER_GROUP << 16)
               )
@@ -160,8 +160,8 @@ export const PhysicalPlayerController = createComponent({
 
         const spring = RAPIER.JointData.spring(
           0.1,
-          400,
-          1,
+          300,
+          50,
           {
             x: xOffset,
             y: length,
@@ -222,10 +222,19 @@ export const PhysicalPlayerController = createComponent({
       //   e.state.replaceJoints(2, 0.3);
       // }
       if (kbd.isKeyHeld(" ")) {
-        for (const i of range(SPRING_ROWS)) e.state.replaceJoints(i, 0.2);
+        for (const i of range(SPRING_ROWS)) e.state.replaceJoints(i, 0.1);
       } else {
         for (const i of range(SPRING_ROWS)) e.state.replaceJoints(i, 0.3);
       }
+
+      // if (kbd.isKeyHeld("arrowright")) {
+      //   for (const i of range(SPRING_ROWS))
+      //     e.state.replaceJoints(i, i == 0 ? 0.1 : 0.4);
+      // }
+      // if (kbd.isKeyHeld("arrowleft")) {
+      //   for (const i of range(SPRING_ROWS))
+      //     e.state.replaceJoints(i, i == 1 ? 0.1 : 0.4);
+      // }
 
       if (e.state.keyTapped("a")) {
         e.state.fixFront = !e.state.fixFront;
@@ -255,6 +264,39 @@ export const PhysicalPlayerController = createComponent({
       setSegmentDynamic(!e.state.fixFront, first);
       setSegmentDynamic(e.state.fixFront, last);
 
+      let nonFixedSegment = e.state.fixFront ? last : first;
+      const t = nonFixedSegment.comp(Transform).state.matrix;
+
+      const fwd = scale3(xyz(mulMat4ByVec4(t, [0, 1, 0, 0])), 0.17);
+
+      function turn(axis: Vec3, angle: number) {
+        nonFixedSegment
+          .comp(RigidBody)
+          .state.body.applyImpulse(
+            toRapierVec3(rodrigues(fwd, axis, angle)),
+            true
+          );
+      }
+      function turnVert(dir) {
+        nonFixedSegment
+          .comp(RigidBody)
+          .state.body.applyImpulse(toRapierVec3([0, 0.1 * dir, 0]), true);
+      }
+
+      const turnAngleMul = e.state.fixFront ? -1 : 1;
+
+      if (kbd.isKeyHeld("arrowright")) {
+        turn([0, 1, 0], (Math.PI / 2) * turnAngleMul);
+      }
+      if (kbd.isKeyHeld("arrowleft")) {
+        turn([0, 1, 0], (-Math.PI / 2) * turnAngleMul);
+      }
+      if (kbd.isKeyHeld("arrowup")) {
+        turnVert(1);
+      }
+      if (kbd.isKeyHeld("arrowdown")) {
+        turnVert(-1);
+      }
       // let force: Vec3 = [0, 0, 0];
       // if (kbd.isKeyHeld("w")) {
       //   force = add3(force, [0, 0, -1]);
