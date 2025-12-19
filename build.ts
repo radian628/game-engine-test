@@ -1,3 +1,4 @@
+import "@loaders.gl/polyfills";
 import * as esbuild from "esbuild";
 import { demosPlugin } from "r628/src-node/esbuild-demos";
 import { wgslPlugin } from "r628/src-node/esbuild-wgsl-plugin";
@@ -7,9 +8,63 @@ import copyPlugin from "esbuild-plugin-copy";
 import wasmLoader from "esbuild-plugin-wasm";
 import Env from "./env.json";
 import { watch } from "chokidar";
-
+import {
+  GLTFLoader,
+  GLTFMeshPostprocessed,
+  postProcessGLTF,
+} from "@loaders.gl/gltf";
+import { parse } from "@loaders.gl/core";
+import * as path from "node:path";
+import * as fs from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { Readable, Transform } from "node:stream";
+
+export function gltfLoader(): esbuild.Plugin {
+  return {
+    name: "gltf",
+    setup(build) {
+      build.onResolve({ filter: /\.(gltf|glb)$/ }, (args) => {
+        return {
+          path: path.join(args.resolveDir, args.path),
+          namespace: "gltf",
+          pluginData: {
+            originalPath: args.path,
+          },
+        };
+      });
+
+      build.onLoad({ filter: /.*/, namespace: "gltf" }, async (args) => {
+        console.log("PATHNAME", args.path);
+        const file = await fs.readFile(args.path);
+
+        const gltf = await parse(new Blob([file.buffer]), GLTFLoader);
+
+        const gltf2 = postProcessGLTF(gltf);
+
+        const json = gltf2;
+
+        const declpath = args.path + ".d.ts";
+        console.log("declpath", declpath);
+        fs.writeFile(
+          declpath,
+          `declare module "${
+            args.pluginData.originalPath
+          }" {\n  const data: ${JSON.stringify(
+            json,
+            undefined,
+            2
+          )};\n export default data; \n}`
+        );
+
+        return {
+          loader: "json",
+          contents: JSON.stringify(json),
+          watchFiles: [args.path],
+        };
+      });
+    },
+  };
+}
 
 function prefixer(prefix: string) {
   return new Transform({
@@ -33,6 +88,7 @@ function prefixer(prefix: string) {
       }
     );
     blender.stdout.pipe(prefixer("[BLENDER] ")).pipe(process.stdout);
+    blender.stderr.pipe(prefixer("[BLENDER ERROR] ")).pipe(process.stderr);
   });
 
   const ctx = await esbuild.context({
@@ -55,8 +111,8 @@ function prefixer(prefix: string) {
       buildNotifyPlugin,
       copyPlugin({
         assets: {
-          from: "assets/*",
-          to: "assets",
+          from: "./src/models.glb",
+          to: "assets/models.glb",
         },
       }),
       wasmLoader(),

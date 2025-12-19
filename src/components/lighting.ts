@@ -113,7 +113,7 @@ export const PointLightSource = createComponent({
     });
     const pointLightGeometry = uploadIndexedMeshToGPU(
       device,
-      uvSphere(1, [12, 12])
+      uvSphere(1, [50, 50])
     );
 
     const state = {
@@ -240,6 +240,8 @@ export const PointLightSource = createComponent({
                     (i.state.constant - Math.max(...i.state.color) / cutoff)
               )) /
             (2 * i.state.quadratic);
+
+          console.log(rad);
 
           const m = mulMat4(
             i.entity.comp(Transform).state.matrix,

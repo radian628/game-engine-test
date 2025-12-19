@@ -99,6 +99,7 @@ export type UpdateArgs<Cs extends AnyComponentSpec> = {
   ) => Promise<ComponentGlobal<G>>;
   instances: Set<ComponentInstance<Cs>>;
   scheduleTask(task: () => Promise<void>, tags?: symbol[], waitFor?: symbol[]);
+  sys: System;
 };
 
 export type InitArgs = {
@@ -192,10 +193,12 @@ export function createSystem(): System {
       task: () => Promise<void>,
       tags?: symbol[],
       waitFor?: symbol[]
-    ) => void
+    ) => void,
+    sys: System
   ): Promise<UpdateArgs<Cs>> {
     const c = await getComp<Cs>(spec);
     return {
+      sys,
       global: c,
       compGlobal<G extends AnyComponentSpec>(g) {
         return getComp<G>(g);
@@ -220,7 +223,10 @@ export function createSystem(): System {
     };
   }
 
-  async function repeatingUpdate(name: "fixedUpdate" | "renderUpdate") {
+  async function repeatingUpdate(
+    name: "fixedUpdate" | "renderUpdate",
+    sys: System
+  ) {
     let tasks: {
       task: () => Promise<void>;
       tags: symbol[];
@@ -228,9 +234,13 @@ export function createSystem(): System {
     }[] = [];
     for (const [k, v] of components)
       k.args[name]?.(
-        await getUpdateArgs(k, (task, tags = [], waitFor = []) => {
-          tasks.push({ task, tags, waitFor });
-        })
+        await getUpdateArgs(
+          k,
+          (task, tags = [], waitFor = []) => {
+            tasks.push({ task, tags, waitFor });
+          },
+          sys
+        )
       );
     scheduleAndCompleteAsynchronousTaskGraph(tasks);
   }
@@ -285,10 +295,10 @@ export function createSystem(): System {
       return entity;
     },
     async renderUpdate() {
-      await repeatingUpdate("renderUpdate");
+      await repeatingUpdate("renderUpdate", this);
     },
     async fixedUpdate() {
-      await repeatingUpdate("fixedUpdate");
+      await repeatingUpdate("fixedUpdate", this);
     },
     async compGlobal<Cs extends AnyComponentSpec>(spec) {
       return await getComp<Cs>(spec);

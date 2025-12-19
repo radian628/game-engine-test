@@ -302,10 +302,10 @@ export const DeferredWebgpuRenderer = createComponent({
     const { device, textures, fullscreenQuad } = state;
 
     state.projectionMatrix = perspectiveWebgpu(
-      1,
+      state.fov,
       window.innerWidth / window.innerHeight,
-      0.1,
-      200
+      state.near,
+      state.far
     );
 
     const encoder = device.createCommandEncoder();

@@ -6,6 +6,7 @@ import {
   cartesianProduct,
   length3,
   Mat4,
+  memo,
   mulMat4,
   mulMat4ByVec4,
   mulVec4ByMat4,
@@ -36,6 +37,7 @@ import { parse } from "@loaders.gl/core";
 import {
   GLTFLoader,
   GLTFMeshPostprocessed,
+  GLTFPostprocessed,
   postProcessGLTF,
 } from "@loaders.gl/gltf";
 import {
@@ -44,7 +46,10 @@ import {
   RigidBodyCollider,
 } from "./components/physics-components";
 import { PointLightSource } from "./components/lighting";
-import { SampleWebgpuRendererGeometry } from "./components/geometry";
+import {
+  SampleWebgpuRendererGeometry,
+  TexturedGeometry,
+} from "./components/geometry";
 import {
   ParticleForcefield,
   ParticleSystem,
@@ -60,7 +65,10 @@ import {
   SphericalImpulseJoint,
   UnitImpulseJoint,
 } from "@dimforge/rapier3d-simd";
-import { createSystem, Entity } from "./ecs2";
+import { createSystem, Entity, System } from "./ecs2";
+
+// import Gltf from "models.glb";
+// console.log("a", Gltf);
 
 type MeshBuffers = {
   attributes: Record<string, GPUBuffer>;
@@ -111,7 +119,8 @@ function gltfMeshToWebGPUBuffers(
 
 function gltlfMeshToRapierTrimesh(
   RAPIER: Awaited<typeof import("@dimforge/rapier3d-simd/exports")>,
-  mesh: GLTFMeshPostprocessed
+  mesh: GLTFMeshPostprocessed,
+  scale: Vec3 = [1, 1, 1]
 ) {
   const prim = mesh.primitives[0];
   const position = Object.entries(prim.attributes).find(
@@ -121,14 +130,22 @@ function gltlfMeshToRapierTrimesh(
   const indices = prim.indices;
   if (!indices) throw new Error("Mesh should be indexed!");
 
+  const values = new Float32Array(position.value.buffer.slice());
+
+  for (let i = 0; i < values.length; i += 3) {
+    values[i] *= scale[0];
+    values[i + 1] *= scale[1];
+    values[i + 2] *= scale[2];
+  }
+
   if (indices.bytesPerElement === 2) {
     return RAPIER.ColliderDesc.trimesh(
-      new Float32Array(position.value.buffer),
+      values,
       new Uint32Array([...new Uint16Array(indices.value.buffer)])
     );
   } else {
     return RAPIER.ColliderDesc.trimesh(
-      new Float32Array(position.value.buffer),
+      values,
       new Uint32Array(indices.value.buffer)
     );
   }
@@ -182,6 +199,94 @@ function perspectiveWebgpu(
     near * far * rangeInv,
     0,
   ];
+}
+
+function getNodeByName(gltf: GLTFPostprocessed, name: string) {
+  return gltf.nodes.find((n) => n.name === name);
+}
+
+async function generateTerrain(params: {
+  sys: System;
+  gltf: GLTFPostprocessed;
+  checkPrefix: string;
+  device: GPUDevice;
+}) {
+  const { sys, gltf, checkPrefix, device } = params;
+
+  const {
+    state: { world, RAPIER },
+  } = await sys.compGlobal(PhysicsWorld);
+
+  const makeTexture = memo((bmp: ImageBitmap) => {
+    const tex = device.createTexture({
+      size: [bmp.width, bmp.height],
+      format: "rgba8unorm",
+      usage:
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
+    device.queue.copyExternalImageToTexture(
+      { source: bmp },
+      {
+        texture: tex,
+      },
+      { width: bmp.width, height: bmp.height }
+    );
+
+    return tex;
+  });
+
+  const makeGPUBuffers = memo((mesh: GLTFMeshPostprocessed) => {
+    return gltfMeshToWebGPUBuffers(device, mesh);
+  });
+
+  const makeRapierTrimesh = memo(
+    (mesh: GLTFMeshPostprocessed, scale: Vec3) => {
+      return gltlfMeshToRapierTrimesh(RAPIER, mesh, scale);
+    },
+    ([mesh, scale]) => [mesh, ...scale]
+  );
+
+  for (const node of gltf.nodes) {
+    if (!node.name) continue;
+    if (!node.mesh) continue;
+    if (!node.name.startsWith(checkPrefix)) continue;
+    console.log(node.name, node.mesh, node);
+
+    const mesh = node.mesh.primitives[0];
+
+    const material =
+      mesh.material.pbrMetallicRoughness.baseColorTexture.texture.source.image;
+
+    console.log(mesh);
+
+    const gpumesh = makeGPUBuffers(node.mesh);
+
+    const translation: Vec3 = (node.translation as Vec3) ?? [0, 0, 0];
+
+    const scale = (node.scale as Vec3) ?? [1, 1, 1];
+
+    const e = await sys.entity(
+      Transform(translate([0, 0, 0])),
+      TexturedGeometry({
+        vertexBuffer: gpumesh[0].attributes.POSITION,
+        normalBuffer: gpumesh[0].attributes.NORMAL,
+        uvBuffer:
+          gpumesh[0].attributes.TEXCOORD_1 ?? gpumesh[0].attributes.TEXCOORD_0,
+        albedoTexture: makeTexture(material as unknown as ImageBitmap),
+        size: gpumesh[0].count,
+        indexBuffer: gpumesh[0].indices!.buffer,
+        indexFormat: "uint16",
+        drawColor: [0.27, 0.29, 0.31, 1.0],
+      }),
+      RigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(...translation)),
+      RigidBodyCollider(makeRapierTrimesh(node.mesh, scale).setFriction(0))
+    );
+
+    e.comp(RigidBody).state.scale = scale;
+  }
 }
 
 async function main() {
@@ -395,17 +500,17 @@ async function main() {
   //   },
   // });
 
-  const background = sys.entity(
-    Transform(translate([0, 0, -90])),
-    SampleWebgpuRendererGeometry({
-      vertexBuffer: bg[0].attributes.POSITION,
-      normalBuffer: bg[0].attributes.NORMAL,
-      size: bg[0].count,
-      indexBuffer: bg[0].indices!.buffer,
-      indexFormat: "uint16",
-      drawColor: [0.2, 0.4, 1.0, 1.0],
-    })
-  );
+  // const background = sys.entity(
+  //   Transform(translate([0, 0, -90])),
+  //   SampleWebgpuRendererGeometry({
+  //     vertexBuffer: bg[0].attributes.POSITION,
+  //     normalBuffer: bg[0].attributes.NORMAL,
+  //     size: bg[0].count,
+  //     indexBuffer: bg[0].indices!.buffer,
+  //     indexFormat: "uint16",
+  //     drawColor: [0.2, 0.4, 1.0, 1.0],
+  //   })
+  // );
 
   // sys.entity({
   //   transform: translate([0, 0, 0]),
@@ -424,21 +529,62 @@ async function main() {
   //   ).setFriction(0.6),
   // });
 
-  sys.entity(
-    Transform(translate([0, 0, 0])),
-    SampleWebgpuRendererGeometry({
-      vertexBuffer: tunnel[0].attributes.POSITION,
-      normalBuffer: tunnel[0].attributes.NORMAL,
-      size: tunnel[0].count,
-      indexBuffer: tunnel[0].indices!.buffer,
-      indexFormat: "uint16",
-      drawColor: [0.27, 0.29, 0.31, 1.0],
-    }),
-    RigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, -10, -10)),
-    RigidBodyCollider(
-      gltlfMeshToRapierTrimesh(RAPIER, g.meshes[4]).setFriction(0)
-    )
-  );
+  await generateTerrain({
+    sys,
+    gltf: g,
+    checkPrefix: "ground",
+    device,
+  });
+
+  // const worldtex = device.createTexture({
+  //   size: [1024, 1024],
+  //   format: "rgba8unorm",
+  //   usage:
+  //     GPUTextureUsage.COPY_DST |
+  //     GPUTextureUsage.TEXTURE_BINDING |
+  //     GPUTextureUsage.RENDER_ATTACHMENT,
+  // });
+
+  // console.log("texture", g.images[0].image);
+
+  // // const testcanvas = document.createElement("canvas");
+  // // testcanvas.width = 1024;
+  // // testcanvas.height = 1024;
+  // // testcanvas.style = `
+  // // position: absolute;
+  // // top: 0;
+  // // left: 0;
+  // // z-index: 99;`;
+  // // document.body.appendChild(testcanvas);
+  // // testcanvas
+  // //   .getContext("2d")
+  // //   .drawImage(g.images[0].image as unknown as ImageBitmap, 0, 0, 256, 256);
+
+  // device.queue.copyExternalImageToTexture(
+  //   { source: g.images[0].image as unknown as ImageBitmap },
+  //   {
+  //     texture: worldtex,
+  //   },
+  //   { width: 1024, height: 1024 }
+  // );
+
+  // sys.entity(
+  //   Transform(translate([0, 0, 0])),
+  //   TexturedGeometry({
+  //     vertexBuffer: tunnel[0].attributes.POSITION,
+  //     normalBuffer: tunnel[0].attributes.NORMAL,
+  //     uvBuffer: tunnel[0].attributes.TEXCOORD_0,
+  //     albedoTexture: worldtex,
+  //     size: tunnel[0].count,
+  //     indexBuffer: tunnel[0].indices!.buffer,
+  //     indexFormat: "uint16",
+  //     drawColor: [0.27, 0.29, 0.31, 1.0],
+  //   }),
+  //   RigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0)),
+  //   RigidBodyCollider(
+  //     gltlfMeshToRapierTrimesh(RAPIER, g.meshes[4]).setFriction(0)
+  //   )
+  // );
 
   // const ground = sys.entity({
   //   transform: translate([0, 0, 0]),
@@ -496,11 +642,14 @@ async function main() {
 
   const player = await sys.entity(
     Transform(translate([0, 0, 10])),
-    PhysicalPlayerController({ geometry: wormsegGeo }),
-    TrackCamera(undefined)
+    PhysicalPlayerController({
+      geometry: wormsegGeo,
+      startPos: getNodeByName(g, "playerstart").translation as Vec3,
+    })
+    // TrackCamera(undefined)
   );
 
-  console.log("player created", player, player.comp(TrackCamera));
+  // console.log("player created", player, player.comp(TrackCamera));
 
   // const ropeEntities: Entity<typeof RigidBody>[] = [];
   // for (let i = 0; i < 20; i++) {
@@ -607,15 +756,15 @@ async function main() {
   // });
 
   for (const pos of [
-    [0, 30, -20],
-    [0, 30, 0],
+    [0, 100, -20],
+    [0, 100, 0],
   ] as Vec3[]) {
     sys.entity(
       Transform(translate(pos)),
       PointLightSource({
-        color: [1, 1, 1],
-        quadratic: 0.02,
-        linear: 0.01,
+        color: [0.3, 0.2, 0.2],
+        quadratic: 1 / 10000,
+        linear: 1 / 10000,
         constant: 1,
       })
     );
@@ -640,11 +789,16 @@ async function main() {
 
   let viewRotation: Vec2 = [0, 0];
 
+  async function fixedLoop() {
+    await sys.fixedUpdate();
+    setTimeout(fixedLoop, 1000 / 60);
+  }
+
   async function loop() {
     renderer.state.aspect = window.innerWidth / window.innerHeight;
-    renderer.state.fov = 1;
+    renderer.state.fov = 1.8;
     renderer.state.near = 0.1;
-    renderer.state.far = 200;
+    renderer.state.far = 10000;
 
     // monkeyTest.component(Transform).matrix = translate([t % 10, 0, -50]);
 
@@ -696,7 +850,6 @@ async function main() {
     // );
 
     await sys.renderUpdate();
-    await sys.fixedUpdate();
 
     t++;
 
@@ -705,6 +858,7 @@ async function main() {
   }
 
   loop();
+  fixedLoop();
 }
 
 main();

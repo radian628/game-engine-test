@@ -1,4 +1,4 @@
-import { mulMat4, rotate, translate, Vec3 } from "r628";
+import { mulMat4, rotate, scale, translate, Vec3 } from "r628";
 import { Transform } from "../transform-component";
 import type RAPIER from "@dimforge/rapier3d-simd";
 import { createComponent } from "../ecs2";
@@ -58,6 +58,7 @@ export const RigidBody = createComponent({
       body: (await compGlobal(PhysicsWorld)).state.world.createRigidBody(
         params
       ),
+      scale: [1, 1, 1] as Vec3,
     };
   },
   async destroy(c, { compGlobal }) {
@@ -71,8 +72,11 @@ export const RigidBody = createComponent({
       const rotation = quatToAngleAxis(rotationQuat);
 
       inst.entity.comp(Transform).state.matrix = mulMat4(
-        translate([translation.x, translation.y, translation.z]),
-        rotate(rotation.axis, rotation.angle)
+        mulMat4(
+          translate([translation.x, translation.y, translation.z]),
+          rotate(rotation.axis, rotation.angle)
+        ),
+        scale(inst.state.scale)
       );
     }
   },

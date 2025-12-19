@@ -52,13 +52,13 @@ declare module "gbuffer.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 43743,
+            "id": 826,
             "line": 26,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 43744,
+            "id": 827,
             "line": 26,
             "name": "binding",
             "value": "0"
