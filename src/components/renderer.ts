@@ -238,6 +238,7 @@ function intervalInclusive(a: number, b: number): number[] {
 export const DeferredWebgpuRenderer = createComponent({
   async init({ compGlobal }) {
     const canvas = (await compGlobal(MainCanvas)).state.canvas;
+    canvas.style.imageRendering = "pixelated";
 
     const ctx = canvas.getContext("webgpu");
 
@@ -257,8 +258,8 @@ export const DeferredWebgpuRenderer = createComponent({
     const onResizeCallbacks = new Set<() => void>();
 
     function resize() {
-      canvas.width = window.innerWidth * window.devicePixelRatio;
-      canvas.height = window.innerHeight * window.devicePixelRatio;
+      canvas.width = window.innerWidth * window.devicePixelRatio * 0.25;
+      canvas.height = window.innerHeight * window.devicePixelRatio * 0.25;
       for (const cb of onResizeCallbacks) cb();
       ret.textures = maybeUpdateTextures(device, [canvas.width, canvas.height]);
     }
