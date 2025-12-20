@@ -460,33 +460,33 @@ async function main() {
   //   },
   // });
 
-  sys.entity(
-    Transform(translate([0, 0, -15])),
-    ParticleForcefield({
-      positionBuffer: particlePositions,
-      velocityBuffer: particleVelocities,
-      forceFieldTexture: tex,
-      count: particleCount,
-    })
-  );
+  // sys.entity(
+  //   Transform(translate([0, 0, -15])),
+  //   ParticleForcefield({
+  //     positionBuffer: particlePositions,
+  //     velocityBuffer: particleVelocities,
+  //     forceFieldTexture: tex,
+  //     count: particleCount,
+  //   })
+  // );
 
-  // const particles = sys.entity({
-  //   transform: translate([0, 0, -15]),
-  //   particleSystem: {
+  // // const particles = sys.entity({
+  // //   transform: translate([0, 0, -15]),
+  // //   particleSystem: {
+  // //     drawColor: [1.0, 1.0, 1.0, 1.0],
+  // //     count: particleCount,
+  // //     positionBuffer: particlePositions,
+  // //   },
+  // // });
+
+  // sys.entity(
+  //   Transform(translate([0, 0, -15])),
+  //   ParticleSystem({
   //     drawColor: [1.0, 1.0, 1.0, 1.0],
   //     count: particleCount,
   //     positionBuffer: particlePositions,
-  //   },
-  // });
-
-  sys.entity(
-    Transform(translate([0, 0, -15])),
-    ParticleSystem({
-      drawColor: [1.0, 1.0, 1.0, 1.0],
-      count: particleCount,
-      positionBuffer: particlePositions,
-    })
-  );
+  //   })
+  // );
 
   // const background = sys.entity({
   //   transform: translate([0, 0, -90]),
