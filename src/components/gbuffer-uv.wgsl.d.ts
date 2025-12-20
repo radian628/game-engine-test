@@ -41,13 +41,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 1306,
+            "id": 827,
             "line": 25,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 1307,
+            "id": 828,
             "line": 25,
             "name": "binding",
             "value": "0"
@@ -62,13 +62,13 @@ declare module "gbuffer-uv.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 1309,
+              "id": 830,
               "line": 26,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 1310,
+              "id": 831,
               "line": 26,
               "name": "binding",
               "value": "1"
@@ -86,13 +86,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 1,
         "attributes": [
           {
-            "id": 1309,
+            "id": 830,
             "line": 26,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 1310,
+            "id": 831,
             "line": 26,
             "name": "binding",
             "value": "1"
@@ -107,13 +107,13 @@ declare module "gbuffer-uv.wgsl" {
           "name": "sampler",
           "attributes": [
             {
-              "id": 1314,
+              "id": 835,
               "line": 27,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 1315,
+              "id": 836,
               "line": 27,
               "name": "binding",
               "value": "2"
@@ -127,13 +127,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 2,
         "attributes": [
           {
-            "id": 1314,
+            "id": 835,
             "line": 27,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 1315,
+            "id": 836,
             "line": 27,
             "name": "binding",
             "value": "2"
