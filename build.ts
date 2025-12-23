@@ -80,15 +80,17 @@ function prefixer(prefix: string) {
   watch("./assets.blend").on("all", () => {
     console.log("blend file modification detected");
 
-    const blender = spawn(
-      Env.blender5,
-      ["./assets.blend", "--background", "--python", "load-assets.py"],
-      {
-        stdio: "pipe",
-      }
-    );
-    blender.stdout.pipe(prefixer("[BLENDER] ")).pipe(process.stdout);
-    blender.stderr.pipe(prefixer("[BLENDER ERROR] ")).pipe(process.stderr);
+    setTimeout(() => {
+      const blender = spawn(
+        Env.blender5,
+        ["./assets.blend", "--background", "--python", "load-assets.py"],
+        {
+          stdio: "pipe",
+        }
+      );
+      blender.stdout.pipe(prefixer("[BLENDER] ")).pipe(process.stdout);
+      blender.stderr.pipe(prefixer("[BLENDER ERROR] ")).pipe(process.stderr);
+    }, 500);
   });
 
   const ctx = await esbuild.context({

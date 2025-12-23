@@ -358,10 +358,13 @@ async function main() {
         };
       },
       () => undefined,
-      ({ device, canvas, ctx, lighting }, res, g) => {
+      ({ device, canvas, ctx, lighting, albedo }, res, g) => {
         const encoder = device.createCommandEncoder();
+        // g.blitToCanvas.withInputs({
+        //   x: lighting.createView(),
+        // })(undefined)(encoder, { y: ctx.getCurrentTexture().createView() });
         g.blitToCanvas.withInputs({
-          x: lighting.createView(),
+          x: albedo.createView(),
         })(undefined)(encoder, { y: ctx.getCurrentTexture().createView() });
         device.queue.submit([encoder.finish()]);
       }

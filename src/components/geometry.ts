@@ -115,7 +115,13 @@ export const TexturedGeometry = createComponent({
           binding: 1,
           resource: params.albedoTexture.createView(),
         },
-        { binding: 2, resource: device.createSampler() },
+        {
+          binding: 2,
+          resource: device.createSampler({
+            minFilter: "linear",
+            magFilter: "linear",
+          }),
+        },
       ],
     });
 
