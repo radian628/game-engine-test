@@ -41,13 +41,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 3214,
+            "id": 618737,
             "line": 25,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 3215,
+            "id": 618738,
             "line": 25,
             "name": "binding",
             "value": "0"
@@ -62,13 +62,13 @@ declare module "gbuffer-uv.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 3217,
+              "id": 618740,
               "line": 26,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 3218,
+              "id": 618741,
               "line": 26,
               "name": "binding",
               "value": "1"
@@ -86,13 +86,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 1,
         "attributes": [
           {
-            "id": 3217,
+            "id": 618740,
             "line": 26,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 3218,
+            "id": 618741,
             "line": 26,
             "name": "binding",
             "value": "1"
@@ -107,13 +107,13 @@ declare module "gbuffer-uv.wgsl" {
           "name": "sampler",
           "attributes": [
             {
-              "id": 3222,
+              "id": 618745,
               "line": 27,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 3223,
+              "id": 618746,
               "line": 27,
               "name": "binding",
               "value": "2"
@@ -127,13 +127,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 2,
         "attributes": [
           {
-            "id": 3222,
+            "id": 618745,
             "line": 27,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 3223,
+            "id": 618746,
             "line": 27,
             "name": "binding",
             "value": "2"

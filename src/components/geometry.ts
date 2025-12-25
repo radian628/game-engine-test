@@ -1,14 +1,22 @@
-import { makeUniformBuffer, mulMat4, Vec4 } from "r628";
+import {
+  makeUniformBuffer,
+  mulMat4,
+  mulMat4ByVec4,
+  mulVec4ByMat4,
+  Vec4,
+  xyz,
+} from "r628";
 import { GBUFFER_PASS, DeferredWebgpuRenderer } from "./renderer";
 import { Transform } from "../transform-component";
 
-import GBufferRenderer from "./gbuffer.wgsl?raw";
+import GBufferRenderer from "./gbuffer.wgsl?incl";
 import GBufferRendererJSON from "gbuffer.wgsl";
 
 import TexturedGBuffer from "./gbuffer-uv.wgsl?raw";
 import TexturedGBufferJSON from "gbuffer-uv.wgsl";
 
 import { createComponent } from "../ecs2";
+import { inv4 } from "../matrix";
 
 export const TexturedGeometry = createComponent({
   async init({ compGlobal }) {
@@ -352,6 +360,8 @@ export const SampleWebgpuRendererGeometry = createComponent({
       //   },
       // });
 
+      const cameraPos = xyz(mulMat4ByVec4(inv4(viewMatrix), [0, 0, 0, 1]));
+
       for (const i of instances) {
         const transform = i.entity.comp(Transform).state.matrix;
         const buf = makeUniformBuffer<typeof GBufferRendererJSON, 0, 0>(
@@ -362,6 +372,10 @@ export const SampleWebgpuRendererGeometry = createComponent({
             m: transform,
             mvp: mulMat4(projectionMatrix, mulMat4(viewMatrix, transform)),
             draw_color: i.state.drawColor,
+            camera_pos: cameraPos,
+            m_inv: inv4(transform),
+            glancing_alpha: 0,
+            facing_alpha: 1,
           }
         );
 

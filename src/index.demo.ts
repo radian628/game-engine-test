@@ -66,6 +66,8 @@ import {
   UnitImpulseJoint,
 } from "@dimforge/rapier3d-simd";
 import { createSystem, Entity, System } from "./ecs2";
+import { ShadowPointLightSource } from "./components/lighting-shadow";
+import { AmbientLightSource } from "./components/lighting-ambient";
 
 // import Gltf from "models.glb";
 // console.log("a", Gltf);
@@ -169,35 +171,6 @@ function trans4(m: Mat4): Mat4 {
     m[7],
     m[11],
     m[15],
-  ];
-}
-
-function perspectiveWebgpu(
-  fieldOfViewInRadians: number,
-  aspectRatio: number,
-  near: number,
-  far: number
-): Mat4 {
-  const f = 1.0 / Math.tan(fieldOfViewInRadians / 2);
-  const rangeInv = 1 / (near - far);
-
-  return [
-    f / aspectRatio,
-    0,
-    0,
-    0,
-    0,
-    f,
-    0,
-    0,
-    0,
-    0,
-    far * rangeInv,
-    -1,
-    0,
-    0,
-    near * far * rangeInv,
-    0,
   ];
 }
 
@@ -353,19 +326,136 @@ async function main() {
             outputs: {
               y: navigator.gpu.getPreferredCanvasFormat() as "bgra8unorm",
             },
-            source: "y = mix(vec4f(1.0,0.0,0.0,1.0), vec4f(x.rgb, 1.0), x.a);",
+            // source: "y = mix(vec4f(1.0,0.0,0.0,1.0), vec4f(x.rgb, 1.0), x.a);
+            source: "y = x;",
+          }),
+
+          chromaticAberration: createSimpleFilterPipeline(device, {
+            inputs: { x: {} },
+            outputs: {
+              y: navigator.gpu.getPreferredCanvasFormat() as "bgra8unorm",
+            },
+            source: `
+let dims = textureDimensions(tex_x).xy;
+let offset = vec2f(1.0) / vec2f(dims);
+var px1 = textureSampleLevel(tex_x, sampler0, uv - offset, 0);
+var px2 = textureSampleLevel(tex_x, sampler0, uv + offset, 0);
+var px3 = textureSampleLevel(tex_x, sampler0, uv + offset * 2, 0);
+
+px1 *= vec4f(0.0, 0.5, 0.75, 1.0);
+px2 *= vec4f(0.5, 0.0, 0.25, 1.0);
+px3 *= vec4f(0.5, 0.5, 0.0, 1.0);
+
+y = px1 + px2 + px3;
+y.a = 1.0; 
+            
+            `,
+          }),
+
+          dofBlur: createSimpleFilterPipeline(device, {
+            inputs: { color: {}, position: {} },
+            uniforms: { origin: "vec3f" },
+            samplers: [{}],
+            outputs: {
+              blurred: "rgba8unorm",
+            },
+            globals: `
+
+fn hash22(p: vec2u) -> vec2u {
+    var v = p * 1664525u + 1013904223u;
+    v.x += v.y * 1664525u; v.y += v.x * 1664525u;
+    v ^= v >> vec2u(16u);
+    v.x += v.y * 1664525u; v.y += v.x * 1664525u;
+    v ^= v >> vec2u(16u);
+    return v;
+}
+fn rand22(f: vec2f) -> vec2f { return vec2f(hash22(bitcast<vec2u>(f))) / f32(0xffffffff); }
+
+
+            `,
+            source: `
+_ = params.origin;
+_ = position;
+let dims = textureDimensions(tex_color).xy;
+let RAD = 10.0 / f32(dims.x);
+let STEP = 0.2;
+
+var base_offset = (rand22(uv) - 0.5) * RAD * 2.0;
+
+// let pixel = vec2u(uv * vec2f(dims));
+
+// let base_offset = RAD * vec2f(
+//   select(-1.0, 1.0, pixel.y % 2 == 0),
+//   select(-1.0, 1.0, pixel.x % 2 == 0)
+// );
+
+
+// let base_offset = vec2f(
+//   cos(uv.y * 1000.0),
+//   sin(uv.x * 1000.0)
+//  ) * RAD;
+
+var blended = vec4f(0.0);
+var samples = 0.0;
+
+for (var i = 0.0; i < 1.2; i += STEP) {
+  let offset = base_offset * i;
+  let offset_next = base_offset * (i + STEP);
+  let sample_coord = uv + offset;
+  let offset_color = textureSampleLevel(tex_color, sampler0, sample_coord, 0); 
+  let offset_position = textureSampleLevel(tex_position, sampler0, sample_coord, 0).xyz;
+
+  let dist = distance(offset_position, params.origin);
+  let coc = RAD * pow(abs(dist - 10.0) / dist, 2.0) * 0.01;
+
+  let should_blend = coc > length(offset) && coc < length(offset_next);
+  
+  blended += select(vec4(0.0), offset_color, should_blend);
+  // samples += select(0.0, 1.0, should_blend);
+}
+
+
+blurred = blended ;
+blurred.a = 1.0;
+            `,
           }),
         };
       },
-      () => undefined,
-      ({ device, canvas, ctx, lighting, albedo }, res, g) => {
+      ({ device, canvas }) => {
+        return {
+          dofTemp: device.createTexture({
+            size: [canvas.width, canvas.height],
+            dimension: "2d",
+            format: "rgba8unorm",
+            usage:
+              GPUTextureUsage.RENDER_ATTACHMENT |
+              GPUTextureUsage.TEXTURE_BINDING,
+          }),
+        };
+      },
+      (
+        { device, canvas, ctx, lighting, albedo, position },
+        res,
+        g,
+        { dofTemp }
+      ) => {
         const encoder = device.createCommandEncoder();
-        // g.blitToCanvas.withInputs({
-        //   x: lighting.createView(),
-        // })(undefined)(encoder, { y: ctx.getCurrentTexture().createView() });
-        g.blitToCanvas.withInputs({
-          x: albedo.createView(),
+
+        // g.dofBlur.withInputs({
+        //   position: position.createView(),
+        //   color: lighting.createView(),
+        // })(
+        //   g.dofBlur.makeUniformBuffer().setBuffer({
+        //     origin: [0, 0, 0],
+        //   })
+        // )(encoder, { blurred: dofTemp.createView() });
+
+        g.chromaticAberration.withInputs({
+          x: lighting.createView(),
         })(undefined)(encoder, { y: ctx.getCurrentTexture().createView() });
+        // g.blitToCanvas.withInputs({
+        //   x: albedo.createView(),
+        // })(undefined)(encoder, { y: ctx.getCurrentTexture().createView() });
         device.queue.submit([encoder.finish()]);
       }
     )
@@ -387,15 +477,15 @@ async function main() {
 
   const { world, RAPIER } = (await sys.compGlobal(PhysicsWorld)).state;
 
-  const particleCount = 4 * 16 ** 3;
+  const particleCount = 100000;
 
   const particlePositions = createBufferFromData(
     device,
     new Float32Array(
       range(particleCount).flatMap((x) => [
-        rand(-10, 10),
-        rand(-10, 10),
-        rand(-40, 0),
+        rand(-250, 250),
+        rand(0, 1) ** 2 * 50,
+        rand(-250, 250),
         0,
       ])
     ),
@@ -482,12 +572,20 @@ async function main() {
   // //   },
   // // });
 
+  const s = ShadowPointLightSource({
+    color: [1.0, 0.0, 0.0],
+    linear: 1 / 1000,
+    quadratic: 1 / 1000,
+    constant: 0,
+  });
+
   // sys.entity(
   //   Transform(translate([0, 0, -15])),
   //   ParticleSystem({
-  //     drawColor: [1.0, 1.0, 1.0, 1.0],
+  //     drawColor: [0.8, 0.8, 0.8, 1.0],
   //     count: particleCount,
   //     positionBuffer: particlePositions,
+  //     scale: 0.8,
   //   })
   // );
 
@@ -621,7 +719,7 @@ async function main() {
     size: wormseg[0].count,
     indexBuffer: wormseg[0].indices!.buffer,
     indexFormat: "uint16" as const,
-    drawColor: [1.0, 0.5, 1.0, 1.0] as Vec4,
+    drawColor: [1.0, 0.8, 1.0, 0.99] as Vec4,
   };
 
   // const sys2: System<typeof RigidBody | typeof SampleWebgpuRendererGeometry> =
@@ -648,6 +746,7 @@ async function main() {
     PhysicalPlayerController({
       geometry: wormsegGeo,
       startPos: getNodeByName(g, "playerstart").translation as Vec3,
+      // startPos: [3, 30, 3],
     })
     // TrackCamera(undefined)
   );
@@ -758,15 +857,21 @@ async function main() {
   //   },
   // });
 
+  sys.entity(
+    AmbientLightSource({
+      color: [0.1, 0.1, 0.1],
+    })
+  );
+
   for (const pos of [
-    [0, 100, -20],
-    [0, 100, 0],
+    [80, 220, 80],
+    // [0, 100, 0],
   ] as Vec3[]) {
     sys.entity(
       Transform(translate(pos)),
-      PointLightSource({
-        color: [0.3, 0.2, 0.2],
-        quadratic: 1 / 10000,
+      ShadowPointLightSource({
+        color: [1, 0.8, 0.7],
+        quadratic: 1 / 5000,
         linear: 1 / 10000,
         constant: 1,
       })

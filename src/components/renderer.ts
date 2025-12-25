@@ -258,8 +258,10 @@ export const DeferredWebgpuRenderer = createComponent({
     const onResizeCallbacks = new Set<() => void>();
 
     function resize() {
-      canvas.width = window.innerWidth * window.devicePixelRatio * 1;
-      canvas.height = window.innerHeight * window.devicePixelRatio * 1;
+      canvas.width = Math.ceil(window.innerWidth * window.devicePixelRatio * 1);
+      canvas.height = Math.ceil(
+        window.innerHeight * window.devicePixelRatio * 1
+      );
       for (const cb of onResizeCallbacks) cb();
       ret.textures = maybeUpdateTextures(device, [canvas.width, canvas.height]);
     }

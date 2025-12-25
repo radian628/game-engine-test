@@ -1,4 +1,4 @@
-declare module "lighting.wgsl" {
+declare module "lighting-shadow.wgsl" {
   const data: {
   "bindGroups": [
     [
@@ -8,13 +8,13 @@ declare module "lighting.wgsl" {
           "name": "sampler",
           "attributes": [
             {
-              "id": 16127,
+              "id": 619474,
               "line": 14,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 16128,
+              "id": 619475,
               "line": 14,
               "name": "binding",
               "value": "0"
@@ -28,13 +28,13 @@ declare module "lighting.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 16127,
+            "id": 619474,
             "line": 14,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 16128,
+            "id": 619475,
             "line": 14,
             "name": "binding",
             "value": "0"
@@ -49,13 +49,13 @@ declare module "lighting.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 16131,
+              "id": 619478,
               "line": 15,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 16132,
+              "id": 619479,
               "line": 15,
               "name": "binding",
               "value": "1"
@@ -73,13 +73,13 @@ declare module "lighting.wgsl" {
         "binding": 1,
         "attributes": [
           {
-            "id": 16131,
+            "id": 619478,
             "line": 15,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 16132,
+            "id": 619479,
             "line": 15,
             "name": "binding",
             "value": "1"
@@ -94,13 +94,13 @@ declare module "lighting.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 16136,
+              "id": 619483,
               "line": 16,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 16137,
+              "id": 619484,
               "line": 16,
               "name": "binding",
               "value": "2"
@@ -118,13 +118,13 @@ declare module "lighting.wgsl" {
         "binding": 2,
         "attributes": [
           {
-            "id": 16136,
+            "id": 619483,
             "line": 16,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 16137,
+            "id": 619484,
             "line": 16,
             "name": "binding",
             "value": "2"
@@ -139,13 +139,13 @@ declare module "lighting.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 16141,
+              "id": 619488,
               "line": 17,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 16142,
+              "id": 619489,
               "line": 17,
               "name": "binding",
               "value": "3"
@@ -163,13 +163,13 @@ declare module "lighting.wgsl" {
         "binding": 3,
         "attributes": [
           {
-            "id": 16141,
+            "id": 619488,
             "line": 17,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 16142,
+            "id": 619489,
             "line": 17,
             "name": "binding",
             "value": "3"
@@ -296,19 +296,60 @@ declare module "lighting.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 16165,
+            "id": 619512,
             "line": 31,
             "name": "group",
             "value": "1"
           },
           {
-            "id": 16166,
+            "id": 619513,
             "line": 31,
             "name": "binding",
             "value": "0"
           }
         ],
         "resourceType": 0,
+        "access": "read"
+      },
+      {
+        "name": "shadow_map",
+        "type": {
+          "name": "texture_depth_cube",
+          "attributes": [
+            {
+              "id": 619515,
+              "line": 32,
+              "name": "group",
+              "value": "1"
+            },
+            {
+              "id": 619516,
+              "line": 32,
+              "name": "binding",
+              "value": "1"
+            }
+          ],
+          "size": 0,
+          "format": null,
+          "access": null
+        },
+        "group": 1,
+        "binding": 1,
+        "attributes": [
+          {
+            "id": 619515,
+            "line": 32,
+            "name": "group",
+            "value": "1"
+          },
+          {
+            "id": 619516,
+            "line": 32,
+            "name": "binding",
+            "value": "1"
+          }
+        ],
+        "resourceType": 2,
         "access": "read"
       }
     ]

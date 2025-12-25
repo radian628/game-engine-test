@@ -1,4 +1,4 @@
-declare module "particles.wgsl" {
+declare module "cast-shadow.wgsl" {
   const data: {
   "bindGroups": [
     [
@@ -7,7 +7,7 @@ declare module "particles.wgsl" {
         "type": {
           "name": "Params",
           "attributes": null,
-          "size": 96,
+          "size": 64,
           "members": [
             {
               "name": "mvp",
@@ -19,47 +19,25 @@ declare module "particles.wgsl" {
               "attributes": null,
               "offset": 0,
               "size": 64
-            },
-            {
-              "name": "draw_color",
-              "type": {
-                "name": "vec4f",
-                "attributes": null,
-                "size": 16
-              },
-              "attributes": null,
-              "offset": 64,
-              "size": 16
-            },
-            {
-              "name": "scale",
-              "type": {
-                "name": "vec2f",
-                "attributes": null,
-                "size": 8
-              },
-              "attributes": null,
-              "offset": 80,
-              "size": 8
             }
           ],
           "align": 16,
-          "startLine": 21,
-          "endLine": 25,
+          "startLine": 10,
+          "endLine": 12,
           "inUse": true
         },
         "group": 0,
         "binding": 0,
         "attributes": [
           {
-            "id": 617227,
-            "line": 29,
+            "id": 619947,
+            "line": 14,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 617228,
-            "line": 29,
+            "id": 619948,
+            "line": 14,
             "name": "binding",
             "value": "0"
           }

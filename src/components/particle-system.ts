@@ -1,7 +1,7 @@
 import { makeUniformBuffer, mulMat4, Vec4 } from "r628";
 import { Transform } from "../transform-component";
 import { GBUFFER_PASS, DeferredWebgpuRenderer } from "./renderer";
-import ParticlesShader from "./particles.wgsl?raw";
+import ParticlesShader from "./particles.wgsl?incl";
 import ParticlesShaderJSON from "particles.wgsl";
 
 import ParticlesForcefield from "./particle-forcefield.wgsl?raw";
@@ -161,7 +161,12 @@ export const ParticleSystem = createComponent({
     };
   },
   async instantiate(
-    params: { positionBuffer: GPUBuffer; count: number; drawColor: Vec4 },
+    params: {
+      positionBuffer: GPUBuffer;
+      count: number;
+      drawColor: Vec4;
+      scale: number;
+    },
     { compGlobal }
   ) {
     const {
@@ -191,6 +196,7 @@ export const ParticleSystem = createComponent({
     });
 
     return {
+      scale: params.scale,
       bindGroup,
       positionBuffer: params.positionBuffer,
       particleCount: params.count,
@@ -226,7 +232,7 @@ export const ParticleSystem = createComponent({
           0,
           0,
           {
-            scale: [0.03 / aspect, 0.03],
+            scale: [i.state.scale / aspect, i.state.scale],
             mvp: mulMat4(
               projectionMatrix,
               mulMat4(viewMatrix, i.entity.comp(Transform).state.matrix)

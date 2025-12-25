@@ -14,7 +14,7 @@ import {
 } from "./renderer";
 import { uploadIndexedMeshToGPU, uvSphere } from "../mesh-generation";
 
-import LightingRenderer from "./lighting.wgsl?raw";
+import LightingRenderer from "./lighting.wgsl?incl";
 import LightingRendererJSON from "lighting.wgsl";
 import { Transform } from "../transform-component";
 import { inv4 } from "../matrix";
@@ -240,8 +240,6 @@ export const PointLightSource = createComponent({
                     (i.state.constant - Math.max(...i.state.color) / cutoff)
               )) /
             (2 * i.state.quadratic);
-
-          console.log(rad);
 
           const m = mulMat4(
             i.entity.comp(Transform).state.matrix,

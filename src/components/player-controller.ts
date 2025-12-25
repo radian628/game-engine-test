@@ -249,7 +249,7 @@ export const PhysicalPlayerController = createComponent({
       center = scale3(center, 1 / i.state.segments.length);
       // console.log(center);
 
-      const targetCameraPos = add3(center, [0, 15, 0]);
+      const targetCameraPos = add3(center, [0, 10, 0]);
       i.state.cameraPos = mix3(0.05, i.state.cameraPos, targetCameraPos);
 
       dir += argmin([-Math.PI * 2, 0, Math.PI * 2], (n) =>
@@ -260,11 +260,19 @@ export const PhysicalPlayerController = createComponent({
 
       renderer.state.viewMatrix = mulMat4(
         mulMat4(
-          mulMat4(translate([0, 10, 0]), rotate([1, 0, 0], Math.PI / 6)),
+          mulMat4(translate([0, 9, 0]), rotate([1, 0, 0], Math.PI / 8)),
           rotate([0, 1, 0], i.state.cameraAngle + Math.PI / 2)
         ),
         translate(scale3(i.state.cameraPos, -1))
       );
+
+      // renderer.state.viewMatrix = mulMat4(
+      //   rotate([1, 0, 0], Math.PI / 5),
+      //   mulMat4(
+      //     rotate([0, 1, 0], Date.now() * 0.001),
+      //     translate([-40, -120, -30])
+      //   )
+      // );
     }
   },
 
@@ -403,6 +411,7 @@ export const PhysicalPlayerController = createComponent({
       if (kbd.isKeyHeld("arrowdown")) {
         turnVert(-2);
       }
+
       // let force: Vec3 = [0, 0, 0];
       // if (kbd.isKeyHeld("w")) {
       //   force = add3(force, [0, 0, -1]);

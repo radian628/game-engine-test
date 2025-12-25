@@ -7,8 +7,9 @@ struct ParticlesVertInput {
 struct ParticlesFragInput {
   @builtin(position) vertex_position: vec4f, 
   @location(0) pos: vec4f,
-  @location(1) normal: vec4f,
+  // @location(1) normal: vec4f,
   @location(2) albedo: vec4f,
+  @location(3) uv: vec2f,
 }
 
 struct ParticlesFragOutput {
@@ -23,6 +24,8 @@ struct Params {
   scale: vec2f,
 }
 
+//#include ./dither256.wgsl
+
 @group(0) @binding(0) var<uniform> params : Params;
 
 @vertex
@@ -31,7 +34,7 @@ fn VSMain(input: ParticlesVertInput) -> ParticlesFragInput {
 
   let center = params.mvp * vec4f(input.position, 1.0);
 
-  frag.normal = params.mvp * vec4f(0.0, 1.0, 0.0, 0.0);
+  // frag.normal  = vec4(0.0);
   frag.albedo = params.draw_color;
 
   frag.pos = vec4(array(
@@ -45,7 +48,6 @@ fn VSMain(input: ParticlesVertInput) -> ParticlesFragInput {
 
   frag.vertex_position = frag.pos;
 
-  /*
   frag.uv = array(
     vec2(1.0, 0.0),
     vec2(1.0, 1.0),
@@ -53,7 +55,8 @@ fn VSMain(input: ParticlesVertInput) -> ParticlesFragInput {
     vec2(1.0, 0.0),
     vec2(0.0, 1.0),
     vec2(0.0, 0.0),
-  )[input.vindex]; */
+  )[input.vindex]; 
+
 
   return frag;
 }
@@ -64,15 +67,23 @@ fn FSMain(input: ParticlesFragInput) -> ParticlesFragOutput {
 
   let ipos = vec2i(input.vertex_position.xy);
 
-  // if (
-  //   input.pos.z < 10.0
-  //   && (ipos.x + ipos.y) % 4 != 0
-  // ) {
-  //   discard;
-  // }
+  let rad = length(input.uv - vec2f(0.5)) * 2.0;
+
+  let factor = select(
+    0.0, 
+    (1.0 - pow(rad, 1.0)) * 0.6, 
+    rad < 1.0
+  );
+
+  if (
+    !dither256(factor, ipos / 4)
+  ) {
+    discard;
+  }
 
   o.pos = input.pos;
-  o.normal = input.normal;
+  // o.normal = input.normal;
+  o.normal = params.mvp * normalize(vec4f(input.uv * 2.0 - 1.0, 1.0, 0.0));
   o.albedo = input.albedo;
   return o;
 } 

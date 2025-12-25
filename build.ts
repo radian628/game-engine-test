@@ -18,6 +18,7 @@ import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { Readable, Transform } from "node:stream";
+import { smartAsyncReplaceAll } from "r628";
 
 export function gltfLoader(): esbuild.Plugin {
   return {
@@ -66,6 +67,54 @@ export function gltfLoader(): esbuild.Plugin {
   };
 }
 
+function includeFindReplace(
+  str: string,
+  filepath: string,
+  existing = new Set<string>()
+) {
+  const pattern = /\/\/\#include\s+.*/g;
+  return smartAsyncReplaceAll(str, pattern, async (str, pos, cursor) => {
+    const filename = str.match(/\/\/\#include\s+(.*$)/)?.[1];
+
+    if (!filename) {
+      console.log(`Could not identify filename in string '${str}'`);
+      return "";
+    }
+
+    const newfilepath = path.join(path.dirname(filepath), filename);
+
+    if (existing.has(newfilepath)) return "";
+    existing.add(newfilepath);
+
+    const file = (await fs.readFile(newfilepath)).toString();
+
+    return await includeFindReplace(file, newfilepath, existing);
+  });
+}
+
+const inclQueryParamPlugin: esbuild.Plugin = {
+  name: "incl",
+  setup(build) {
+    build.onResolve({ filter: /\?.*incl/ }, (args) => {
+      return {
+        path: path.join(args.resolveDir, args.path),
+        namespace: "incl-ns",
+      };
+    });
+    build.onLoad({ filter: /.*/, namespace: "incl-ns" }, async (args) => {
+      const fspath = args.path.replace(/\?.*$/, "");
+      const contents = (
+        await includeFindReplace((await fs.readFile(fspath)).toString(), fspath)
+      ).str;
+      return {
+        contents,
+        loader: "text",
+        watchFiles: [fspath],
+      };
+    });
+  },
+};
+
 function prefixer(prefix: string) {
   return new Transform({
     transform(chunk, encoding, callback) {
@@ -110,13 +159,14 @@ function prefixer(prefix: string) {
       }),
       wgslPlugin(),
       rawQueryParamPlugin,
+      inclQueryParamPlugin,
       buildNotifyPlugin,
-      copyPlugin({
-        assets: {
-          from: "./src/models.glb",
-          to: "assets/models.glb",
-        },
-      }),
+      // copyPlugin({
+      //   assets: {
+      //     from: "./src/models.glb",
+      //     to: "assets/models.glb",
+      //   },
+      // }),
       wasmLoader(),
     ],
   });

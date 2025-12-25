@@ -311,6 +311,8 @@ struct Params {\n`;
 
   const reflectBindGroups = reflect.getBindGroups();
 
+  console.log("SHADERSOURCE", shaderSource);
+
   const module = device.createShaderModule({
     code: shaderSource,
   });
