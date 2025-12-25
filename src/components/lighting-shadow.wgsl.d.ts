@@ -8,13 +8,13 @@ declare module "lighting-shadow.wgsl" {
           "name": "sampler",
           "attributes": [
             {
-              "id": 619474,
+              "id": 620003,
               "line": 14,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 619475,
+              "id": 620004,
               "line": 14,
               "name": "binding",
               "value": "0"
@@ -28,13 +28,13 @@ declare module "lighting-shadow.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 619474,
+            "id": 620003,
             "line": 14,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 619475,
+            "id": 620004,
             "line": 14,
             "name": "binding",
             "value": "0"
@@ -49,13 +49,13 @@ declare module "lighting-shadow.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 619478,
+              "id": 620007,
               "line": 15,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 619479,
+              "id": 620008,
               "line": 15,
               "name": "binding",
               "value": "1"
@@ -73,13 +73,13 @@ declare module "lighting-shadow.wgsl" {
         "binding": 1,
         "attributes": [
           {
-            "id": 619478,
+            "id": 620007,
             "line": 15,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 619479,
+            "id": 620008,
             "line": 15,
             "name": "binding",
             "value": "1"
@@ -94,13 +94,13 @@ declare module "lighting-shadow.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 619483,
+              "id": 620012,
               "line": 16,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 619484,
+              "id": 620013,
               "line": 16,
               "name": "binding",
               "value": "2"
@@ -118,13 +118,13 @@ declare module "lighting-shadow.wgsl" {
         "binding": 2,
         "attributes": [
           {
-            "id": 619483,
+            "id": 620012,
             "line": 16,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 619484,
+            "id": 620013,
             "line": 16,
             "name": "binding",
             "value": "2"
@@ -139,13 +139,13 @@ declare module "lighting-shadow.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 619488,
+              "id": 620017,
               "line": 17,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 619489,
+              "id": 620018,
               "line": 17,
               "name": "binding",
               "value": "3"
@@ -163,13 +163,13 @@ declare module "lighting-shadow.wgsl" {
         "binding": 3,
         "attributes": [
           {
-            "id": 619488,
+            "id": 620017,
             "line": 17,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 619489,
+            "id": 620018,
             "line": 17,
             "name": "binding",
             "value": "3"
@@ -296,13 +296,13 @@ declare module "lighting-shadow.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 619512,
+            "id": 620041,
             "line": 31,
             "name": "group",
             "value": "1"
           },
           {
-            "id": 619513,
+            "id": 620042,
             "line": 31,
             "name": "binding",
             "value": "0"
@@ -317,13 +317,13 @@ declare module "lighting-shadow.wgsl" {
           "name": "texture_depth_cube",
           "attributes": [
             {
-              "id": 619515,
+              "id": 620044,
               "line": 32,
               "name": "group",
               "value": "1"
             },
             {
-              "id": 619516,
+              "id": 620045,
               "line": 32,
               "name": "binding",
               "value": "1"
@@ -337,13 +337,13 @@ declare module "lighting-shadow.wgsl" {
         "binding": 1,
         "attributes": [
           {
-            "id": 619515,
+            "id": 620044,
             "line": 32,
             "name": "group",
             "value": "1"
           },
           {
-            "id": 619516,
+            "id": 620045,
             "line": 32,
             "name": "binding",
             "value": "1"

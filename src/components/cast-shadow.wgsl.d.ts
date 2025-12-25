@@ -30,13 +30,13 @@ declare module "cast-shadow.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 619947,
+            "id": 620476,
             "line": 14,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 619948,
+            "id": 620477,
             "line": 14,
             "name": "binding",
             "value": "0"

@@ -343,8 +343,8 @@ export const PhysicalPlayerController = createComponent({
             true
           );
         segment.comp(SampleWebgpuRendererGeometry).state.drawColor = dynamic
-          ? [1.0, 0.5, 1.0, 1.0]
-          : [1.0, 0.0, 0.0, 1.0];
+          ? [1.0, 0.8, 1.0, 0.99]
+          : [1.0, 0.0, 0.0, 0.99];
       }
 
       // e.state.replaceFriction((x) => (x > 0.5 ? 20 : 0));

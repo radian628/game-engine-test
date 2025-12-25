@@ -41,13 +41,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 0,
         "attributes": [
           {
-            "id": 618737,
+            "id": 620807,
             "line": 25,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 618738,
+            "id": 620808,
             "line": 25,
             "name": "binding",
             "value": "0"
@@ -62,13 +62,13 @@ declare module "gbuffer-uv.wgsl" {
           "name": "texture_2d",
           "attributes": [
             {
-              "id": 618740,
+              "id": 620810,
               "line": 26,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 618741,
+              "id": 620811,
               "line": 26,
               "name": "binding",
               "value": "1"
@@ -86,13 +86,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 1,
         "attributes": [
           {
-            "id": 618740,
+            "id": 620810,
             "line": 26,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 618741,
+            "id": 620811,
             "line": 26,
             "name": "binding",
             "value": "1"
@@ -107,13 +107,13 @@ declare module "gbuffer-uv.wgsl" {
           "name": "sampler",
           "attributes": [
             {
-              "id": 618745,
+              "id": 620815,
               "line": 27,
               "name": "group",
               "value": "0"
             },
             {
-              "id": 618746,
+              "id": 620816,
               "line": 27,
               "name": "binding",
               "value": "2"
@@ -127,13 +127,13 @@ declare module "gbuffer-uv.wgsl" {
         "binding": 2,
         "attributes": [
           {
-            "id": 618745,
+            "id": 620815,
             "line": 27,
             "name": "group",
             "value": "0"
           },
           {
-            "id": 618746,
+            "id": 620816,
             "line": 27,
             "name": "binding",
             "value": "2"
